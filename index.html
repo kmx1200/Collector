@@ -41,6 +41,7 @@ input[readonly]{background:var(--ro)}
 #sr button{display:block;width:100%;text-align:left;background:var(--c);color:var(--t);border-radius:0;border-bottom:1px solid var(--l)}
 .mb{padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--l)}
 .pin{font-size:30px;line-height:30px}
+.pg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.ph{position:relative}.ph img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--l);display:block}.ph button{position:absolute;top:2px;right:2px;padding:2px 7px}
 </style></head><body>
 <header><h1>Collector · ATD Questembert</h1><button id="inst" class="s" hidden>⬇ Installer</button><button id="new" class="o">＋ Nouvelle fiche</button><button id="back" class="s" hidden>← Liste</button><button id="th" class="s" type="button" aria-label="Basculer entre thème clair et sombre">🌙</button></header>
 <main>
@@ -48,8 +49,8 @@ input[readonly]{background:var(--ro)}
  <div class="card"><input id="q" type="search" placeholder="Rechercher (commune, RD, incident…)"><p class="m" id="cnt"></p><button id="mapb" class="s" type="button">🧭 Rechercher un lieu / guidage</button></div>
  <details class="card"><summary>Export / sauvegarde</summary>
   <div class="r"><label class="f">Du<input id="d1" type="date"></label><label class="f">Au<input id="d2" type="date"></label></div>
-  <div class="a"><button id="xg">Export QGIS (GeoJSON)</button><button id="xc">Export CSV</button><button id="xp">Export PDF</button><button id="xj" class="s">Sauvegarde JSON</button><label class="btn s">Importer JSON<input id="imp" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div>
-  <div class="a" id="shr" hidden><b>Envoyer (WhatsApp, messagerie, e-mail…) :</b><button id="sg" class="s" type="button">📤 GeoJSON</button><button id="sc" class="s" type="button">📤 CSV</button><button id="sp" class="s" type="button">📤 PDF</button><button id="sj" class="s" type="button">📤 Sauvegarde</button></div>
+  <div class="a"><button id="xg">Export QGIS (GeoJSON)</button><button id="xz">Export QGIS + photos (ZIP)</button><button id="xc">Export CSV</button><button id="xp">Export PDF</button><button id="xj" class="s">Sauvegarde JSON</button><label class="btn s">Importer JSON<input id="imp" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div>
+  <div class="a" id="shr" hidden><b>Envoyer (WhatsApp, messagerie, e-mail…) :</b><button id="sg" class="s" type="button">📤 GeoJSON</button><button id="sc" class="s" type="button">📤 CSV</button><button id="sz" class="s" type="button">📤 ZIP QGIS</button><button id="sp" class="s" type="button">📤 PDF</button><button id="sj" class="s" type="button">📤 Sauvegarde</button></div>
   <p class="m">GeoJSON : points GPS (WGS84, EPSG:4326). CSV : colonnes Route / Cumul_Debut pour le référencement linéaire (LRS), plus lat/lon.</p>
  </details>
  <div id="L"></div>
@@ -124,6 +125,7 @@ function build(){
  ${ch('pv','PV forces de l’ordre établi ?')}${ch('personnes','Info personnes accidentées')}${ch('antecedents','Antécédents au même endroit')}`)+
  H("Détail de l'évènement",`${ch('sens','Sens de circulation véhicule')}${ch('typeacc',"Type d'accident")}${ch('lumiere','Lumière')}${ch('env','Environnement')}${ch('croisement','Type de croisement')}
  ${ch('facteurs',"Facteurs connus à l'origine de l'accident et obstacle")}${ti('fact_prec','Autres – précisions')}`)+
+ H('Photos',`<div class="a"><button type="button" id="cam" class="o">📷 Prendre une photo</button><button type="button" id="gal" class="s">🖼️ Galerie</button></div><input id="phc" type="file" accept="image/*" capture="environment" hidden><input id="phi" type="file" accept="image/*" multiple hidden><div id="phg" class="pg"></div>`,1)+
  H('Observations',`${ta('infra','Infrastructure à vérifier ou observations diverses')}${ta('obs','Observations')}
  <div class="r">${ti('agent1','Agent 1 (nom / prénom)')}${ti('agent2','Agent 2 (nom / prénom)')}${ti('date_fiche','Date','date')}</div>`,1)+
  H("Données pour état de frais – tiers",`<div class="r">${ti('t_nom','Nom')}${ti('t_prenom','Prénom')}${ti('t_adresse','Adresse')}${ti('t_cp_ville','Code postal / Ville')}${ti('t_tel','Téléphone','tel')}
@@ -150,12 +152,12 @@ function fill(f){F.reset();F.site.value=f.site;popC();F.rd.value=f.rd||'';popPR(
  if(e.type=='checkbox')e.checked=(f[e.name]||[]).includes(e.value);else if(e.type!='button')e.value=f[e.name]}}
 // --- navigation
 function show(v){$('#lv').hidden=v!='list';$('#fv').hidden=v!='form';$('#new').hidden=v!='list';$('#back').hidden=v!='form';if(v=='list')renderList()}
-function open_(f){cur=f;fill(f);calc();show('form');scrollTo(0,0)}
+function open_(f){orig=f.photos||[];added=[];cur={...f,photos:[...orig]};fill(f);calc();drawPh();show('form');scrollTo(0,0)}
 function neu(){const d=new Date(),site=localStorage.mc_site||'Vannes_St_Ave';
  const k=fiches.filter(x=>x.site==site&&new Date(x.cree).toDateString()==d.toDateString()).length+1;
  open_({id:crypto.randomUUID?crypto.randomUUID():Date.now()+'',cree:d.toISOString(),site,numero:k,dDebut:nowL(),date_fiche:nowL().slice(0,10)})}
 const card=f=>`<div class="card"><b>Fiche n°${esc(f.numero||'?')} · ${fmt(f.dDebut||f.cree)}</b><br>${esc([f.commune,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')+(f.abs?' +'+f.abs:'')].filter(Boolean).join(' · '))}
- <div class="m">${esc([...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '))} ${f.lat?'📍':'· sans GPS'}</div>
+ <div class="m">${esc([...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '))} ${f.lat?'📍':'· sans GPS'} ${(f.photos||[]).length?'· 📷'+f.photos.length:''}</div>
  <div class="a"><button class="s" data-a="e" data-i="${f.id}">Modifier</button>${f.lat&&f.lon?`<button class="o" data-a="g" data-i="${f.id}">🧭 Guidage</button>`:''}<button class="s" data-a="s" data-i="${f.id}">📤 Envoyer</button><button class="s" data-a="p" data-i="${f.id}">📄 PDF</button><button class="s" data-a="c" data-i="${f.id}">Dupliquer</button><button class="d" data-a="x" data-i="${f.id}">Supprimer</button></div></div>`;
 function renderList(){const q=$('#q').value.toLowerCase();
  const L=fiches.filter(f=>!q||JSON.stringify(f).toLowerCase().includes(q)).sort((a,b)=>(b.dDebut||b.cree).localeCompare(a.dDebut||a.cree));
@@ -165,16 +167,16 @@ function renderList(){const q=$('#q').value.toLowerCase();
 let SH=0;const dl=(nm,t,m)=>{if(SH)return shr(nm,t,m);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:m}));a.download=nm;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3)};
 const sel=()=>{const a=$('#d1').value,b=$('#d2').value;return fiches.filter(f=>{const d=(f.dDebut||f.cree).slice(0,10);return(!a||d>=a)&&(!b||d<=b)})};
 function flat(f){const c=(D.communes[f.site]||[]).find(x=>x[1]==f.commune);
- const o={Route:f.rd,Cumul_Debut:f.cumul,insee:c?c[0]:'',...f};for(const k in o)if(Array.isArray(o[k]))o[k]=o[k].join(' | ');return o}
+ const o={Route:f.rd,Cumul_Debut:f.cumul,insee:c?c[0]:'',...f};o.nb_photos=(f.photos||[]).length;delete o.photos;for(const k in o)if(Array.isArray(o[k]))o[k]=o[k].join(' | ');return o}
 const stamp=()=>new Date().toISOString().slice(0,10);
-$('#xg').onclick=()=>{const r=sel().map(flat).filter(r=>r.lat&&r.lon);if(!r.length)return toast('Aucune fiche géolocalisée');
+$('#xg').onclick=()=>{const r=sel().map(flatG).filter(r=>r.lat&&r.lon);if(!r.length)return toast('Aucune fiche géolocalisée');
  dl(`collector_${stamp()}.geojson`,JSON.stringify({type:'FeatureCollection',name:'collector',crs:{type:'name',properties:{name:'urn:ogc:def:crs:OGC:1.3:CRS84'}},
  features:r.map(p=>({type:'Feature',properties:p,geometry:{type:'Point',coordinates:[+p.lon,+p.lat]}}))}),'application/geo+json')};
 $('#xc').onclick=()=>{const r=sel().map(flat);if(!r.length)return toast('Aucune fiche');const k=[...new Set(r.flatMap(Object.keys))];
  const q=v=>{v=String(v??'').replace(/\r?\n/g,' ');return/[";]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
  dl(`collector_${stamp()}.csv`,'\ufeff'+[k.join(';'),...r.map(o=>k.map(c=>q(o[c])).join(';'))].join('\r\n'),'text/csv')};
-$('#xj').onclick=()=>dl(`sauvegarde_collector_${stamp()}.json`,JSON.stringify({fiches}),'application/json');
-$('#imp').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());(j.fiches||j).forEach(f=>{const i=fiches.findIndex(x=>x.id==f.id);i<0?fiches.push(f):fiches[i]=f});save();renderList();toast('Import terminé')}catch(x){toast('Fichier invalide')}e.target.value=''};
+$('#xj').onclick=()=>dl(`sauvegarde_collector_${stamp()}.json`,JSON.stringify({fiches,photos:PH}),'application/json');
+$('#imp').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());(j.fiches||j).forEach(f=>{const i=fiches.findIndex(x=>x.id==f.id);i<0?fiches.push(f):fiches[i]=f});for(const id in j.photos||{}){PH[id]=j.photos[id];idbPut(id,j.photos[id])}save();renderList();toast('Import terminé')}catch(x){toast('Fichier invalide')}e.target.value=''};
 // --- envoi par partage (WhatsApp, SMS, messagerie…)
 async function shr(nm,t,m){SH=0;
  const risky=!ios&&!/\.(csv|txt|pdf)$/i.test(nm),c=m=='application/pdf'?[[nm,m]]:risky?[[nm+'.txt','text/plain']]:[[nm,m],[nm,'application/json'],[nm+'.txt','text/plain']];
@@ -183,11 +185,60 @@ async function shr(nm,t,m){SH=0;
    try{await navigator.share({files:[f],title:a})}catch(e){if(e.name!='AbortError')toast(e.name=='NotAllowedError'&&m=='application/pdf'?'Touchez de nouveau le bouton pour envoyer':'Partage impossible : '+(e.name||'')+' '+(e.message||''))}return}}
  toast('Partage de fichier non pris en charge : téléchargement');dl(nm,t,m)}
 $('#shr').hidden=!navigator.canShare;
-for(const[a,b]of[['sg','xg'],['sc','xc'],['sj','xj']])$('#'+a).onclick=()=>{SH=1;try{$('#'+b).click()}finally{SH=0}};
+for(const[a,b]of[['sg','xg'],['sc','xc'],['sz','xz'],['sj','xj']])$('#'+a).onclick=()=>{SH=1;try{$('#'+b).click()}finally{SH=0}};
 function txt(f){const t=[`Fiche n°${f.numero||'?'} – ${fmt(f.dDebut||f.cree)}`,[f.commune,f.lieudit,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')].filter(Boolean).join(' · '),
  [...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '),f.lat&&f.lon?`https://www.google.com/maps?q=${f.lat},${f.lon}`:''].filter(Boolean).join('\n');
  if(navigator.share)navigator.share({title:'Collector',text:t}).catch(()=>{});
  else navigator.clipboard?.writeText(t).then(()=>toast('Texte copié'))}
+// --- photos (IndexedDB + cache mémoire)
+const PH={};let orig=[],added=[],dbp;
+const db=()=>dbp||(dbp=new Promise((res,rej)=>{const r=indexedDB.open('collector',1);r.onupgradeneeded=()=>r.result.createObjectStore('photos',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
+const idbPut=async(id,v)=>{const d=await db();return new Promise((res,rej)=>{const t=d.transaction('photos','readwrite');t.objectStore('photos').put({...v,id});t.oncomplete=res;t.onerror=()=>rej(t.error)})};
+const idbDel=async id=>{try{const d=await db();d.transaction('photos','readwrite').objectStore('photos').delete(id)}catch(e){}};
+const delPh=id=>{delete PH[id];idbDel(id)};
+async function loadPh(){try{const d=await db();await new Promise(res=>{const q=d.transaction('photos').objectStore('photos').getAll();q.onsuccess=()=>{q.result.forEach(p=>PH[p.id]=p);res()};q.onerror=()=>res()})}catch(e){}}
+const shrink=file=>new Promise((res,rej)=>{const u=URL.createObjectURL(file),im=new Image();
+ im.onload=()=>{const k=Math.min(1,1280/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.round(im.naturalWidth*k),h=Math.round(im.naturalHeight*k),c=document.createElement('canvas');
+  c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);URL.revokeObjectURL(u);res({data:c.toDataURL('image/jpeg',.72),w,h})};
+ im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('image illisible'))};im.src=u});
+function drawPh(){$('#phg').innerHTML=(cur.photos||[]).map(id=>PH[id]?`<div class="ph"><img src="${PH[id].data}" alt="photo"><button type="button" class="d" data-p="${id}" aria-label="Supprimer la photo">✕</button></div>`:'').join('')||'<p class="m">Aucune photo</p>'}
+async function addPh(files){for(const file of files){if(cur.photos.length>=8){toast('8 photos maximum par fiche');break}
+ try{const p=await shrink(file),id=crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random();await idbPut(id,p);PH[id]=p;cur.photos.push(id);added.push(id);drawPh()}catch(e){toast('Photo impossible : '+e.message)}}}
+F.addEventListener('change',e=>{if(e.target.id=='phc'||e.target.id=='phi'){addPh([...e.target.files]);e.target.value=''}});
+const flatG=f=>{const o=flat(f);(f.photos||[]).forEach((id,i)=>{if(PH[id])o['photo_'+(i+1)]=PH[id].data});return o};
+// --- zip QGIS (GeoJSON + dossier photos, chemins relatifs)
+const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=u=>{let c=-1;for(let i=0;i<u.length;i++)c=crcT[(c^u[i])&255]^(c>>>8);return(c^-1)>>>0};
+const u8=t=>new TextEncoder().encode(t);
+function zip(files){const d=new Date(),dt=((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate(),tm=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1),parts=[],cd=[];let off=0;
+ for(const{name,data}of files){const nm=u8(name),crc=crc32(data),h=new DataView(new ArrayBuffer(30)),c=new DataView(new ArrayBuffer(46));
+  h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(10,tm,true);h.setUint16(12,dt,true);h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,nm.length,true);
+  c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(12,tm,true);c.setUint16(14,dt,true);c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,nm.length,true);c.setUint32(42,off,true);
+  parts.push(new Uint8Array(h.buffer),nm,data);cd.push(new Uint8Array(c.buffer),nm);off+=30+nm.length+data.length}
+ const e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cd.reduce((a,x)=>a+x.length,0),true);e.setUint32(16,off,true);
+ return new Blob([...parts,...cd,new Uint8Array(e.buffer)],{type:'application/zip'})}
+const LISEZMOI=`Collector - export QGIS avec photos
+
+Contenu : un fichier GeoJSON + un dossier "photos". Les champs photo_1, photo_2... du GeoJSON contiennent le chemin RELATIF de chaque photo (ex. photos/2026-11-26_Vannes_St_Ave_n1_1.jpg).
+
+Dans QGIS :
+1. Decompressez le ZIP dans un dossier, puis ajoutez le .geojson (Couche > Ajouter une couche vectorielle).
+2. Enregistrez le projet QGIS dans CE MEME dossier.
+3. Proprietes de la couche > Formulaire d'attributs > choisissez le champ photo_1 > Type de widget : Piece jointe.
+   Chemins relatifs : "Relatif au chemin du projet" ; Integre : "Visionneuse d'images".
+4. Repetez pour photo_2, photo_3... Ouvrez ensuite la table ou le formulaire d'un point pour voir la photo.
+`;
+function zexp(){const L=sel().filter(f=>f.lat&&f.lon);if(!L.length)return toast('Aucune fiche géolocalisée');
+ const used=new Set(),files=[],feats=[];
+ L.forEach((f,i)=>{const p=flat(f),base=((f.dDebut||f.cree).slice(0,10)+'_'+f.site+'_n'+(f.numero||i+1)).replace(/[^A-Za-z0-9_-]/g,'_');
+  (f.photos||[]).forEach((id,k)=>{const ph=PH[id];if(!ph)return;let nm=`photos/${base}_${k+1}.jpg`;while(used.has(nm))nm=nm.replace('.jpg','_b.jpg');used.add(nm);
+   const b=atob(ph.data.split(',')[1]),u=new Uint8Array(b.length);for(let j=0;j<b.length;j++)u[j]=b.charCodeAt(j);files.push({name:nm,data:u});p['photo_'+(k+1)]=nm});
+  feats.push({type:'Feature',properties:p,geometry:{type:'Point',coordinates:[+p.lon,+p.lat]}})});
+ const gj={type:'FeatureCollection',name:'collector',crs:{type:'name',properties:{name:'urn:ogc:def:crs:OGC:1.3:CRS84'}},features:feats};
+ files.unshift({name:`collector_${stamp()}.geojson`,data:u8(JSON.stringify(gj))},{name:'LISEZMOI.txt',data:u8(LISEZMOI)});
+ dl(`collector_qgis_${stamp()}.zip`,zip(files),'application/zip')}
+$('#xz').onclick=zexp;
+// --- fin zip
 // --- pdf
 const PS=[['Localisation',[['Site','site'],['Commune','commune'],['Lieu-dit','lieudit'],['R.D.','rd'],['P.R.','pr'],['Abscisse (m)','abs'],['Cumul (m)','cumul'],['Latitude','lat'],['Longitude','lon'],['Source de la position','loc_source'],['Précision GPS (m)','gps_prec']]],
 ['Appel et intervention',[['N° fiche du jour','numero'],["Heure d'appel",'hAppel'],["Heure de l'accident",'hAcc'],['Début intervention','dDebut'],['Fin intervention','dFin'],['Astreinte','astreinte'],["Temps d'intervention",'tps_h']]],
@@ -233,7 +284,10 @@ async function makePdf(list){const{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',
    if(a||b||c||d)it.push([k,`${d} pers. – week-end/férié ${a} h, nuit ${b} h, normale ${c} h`])});
   if(n(f.heures_totales))it.push(['Heures totales personnel',f.heures_totales+' h']);
   MX.forEach(k=>n(f['mx|'+k])&&it.push([k,f['mx|'+k]]));
-  if(it.length){head('Moyens engagés');it.forEach(r=>row(...r))}});
+  if(it.length){head('Moyens engagés');it.forEach(r=>row(...r))}
+  const ph=(f.photos||[]).map(id=>PH[id]).filter(Boolean);
+  if(ph.length){head('Photos');for(let k=0;k<ph.length;k+=2){const pr=ph.slice(k,k+2).map(p=>{let w=87,h=w*p.h/p.w;if(h>85){h=85;w=h*p.w/p.h}return{p,w,h}}),rh=Math.max(...pr.map(o=>o.h));
+   need(rh+5);pr.forEach((o,j)=>doc.addImage(o.p.data,'JPEG',M+j*93,y,o.w,o.h));y+=rh+5}}});
  const N=doc.getNumberOfPages();for(let i=1;i<=N;i++){doc.setPage(i);doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(107,119,133);doc.text(`Collector - page ${i}/${N}`,W/2,291,{align:'center'})}
  return doc.output('blob')}
 const pname=l=>l.length==1?`collector_fiche_${l[0].numero||'x'}_${(l[0].dDebut||l[0].cree).slice(0,10)}.pdf`:`collector_fiches_${stamp()}.pdf`;
@@ -249,20 +303,22 @@ $('#xp').onclick=()=>{const l=plist();if(!l.length)return toast('Aucune fiche');
 $('#sp').onclick=()=>{const l=plist();if(!l.length)return toast('Aucune fiche');pdf(l,true)};
 // --- fin pdf
 // --- événements
-$('#new').onclick=neu;$('#back').onclick=$('#cancel').onclick=()=>show('list');$('#q').oninput=renderList;
+$('#new').onclick=neu;$('#back').onclick=$('#cancel').onclick=()=>{added.forEach(delPh);added=[];show('list')};$('#q').oninput=renderList;
 $('#save').onclick=()=>{const o={...cur,...read()};Object.assign(o,der(o));o.maj=new Date().toISOString();
- const i=fiches.findIndex(x=>x.id==o.id);i<0?fiches.push(o):fiches[i]=o;localStorage.mc_site=o.site;save();show('list');toast('Fiche enregistrée')};
+ const i=fiches.findIndex(x=>x.id==o.id);i<0?fiches.push(o):fiches[i]=o;localStorage.mc_site=o.site;orig.filter(id=>!(o.photos||[]).includes(id)).forEach(delPh);added=[];save();show('list');toast('Fiche enregistrée')};
 $('#L').onclick=e=>{const b=e.target.closest('button');if(!b)return;const f=fiches.find(x=>x.id==b.dataset.i);if(!f)return;
  if(b.dataset.a=='g')return nav(f.lat,f.lon);
  if(b.dataset.a=='s')return txt(f);
  if(b.dataset.a=='p')return pdf([f],!!navigator.canShare);
  if(b.dataset.a=='e')open_(f);
- if(b.dataset.a=='c')open_({...f,id:Date.now()+'',cree:new Date().toISOString(),numero:'',maj:undefined});
- if(b.dataset.a=='x'&&confirm('Supprimer cette fiche ?')){fiches=fiches.filter(x=>x!=f);save();renderList()}};
+ if(b.dataset.a=='c')open_({...f,id:Date.now()+'',cree:new Date().toISOString(),numero:'',maj:undefined,photos:[]});
+ if(b.dataset.a=='x'&&confirm('Supprimer cette fiche ?')){(f.photos||[]).forEach(delPh);fiches=fiches.filter(x=>x!=f);save();renderList()}};
 F.addEventListener('change',e=>{if(e.target.name=='site')popC();if(e.target.name=='rd')popPR();calc()});
 F.addEventListener('input',calc);
 F.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
  if(b.id=='pick')return openMap('form');
+ if(b.id=='cam')return $('#phc').click();if(b.id=='gal')return $('#phi').click();
+ if(b.dataset.p){cur.photos=cur.photos.filter(x=>x!=b.dataset.p);return drawPh()}
  if(b.classList.contains('now')){F.elements[b.dataset.n].value=nowL();calc()}
  if(b.id=='gps'){if(!navigator.geolocation)return toast('GPS indisponible');b.textContent='Recherche du signal…';
   navigator.geolocation.getCurrentPosition(p=>{F.lat.value=p.coords.latitude.toFixed(6);F.lon.value=p.coords.longitude.toFixed(6);F.gps_prec.value=Math.round(p.coords.accuracy);F.loc_source.value='GPS';b.textContent='📍 Position GPS actuelle';toast('Position enregistrée')},
@@ -315,7 +371,7 @@ $('#sf').onsubmit=async e=>{e.preventDefault();const q=$('#sq').value.trim();if(
   $('#sr').onclick=ev=>{const b=ev.target.closest('button');if(!b)return;const x=j[b.dataset.i],la=+x.lat,lo=+x.lon;
    map.setView([la,lo],17);setPt(la,lo);$('#sr').hidden=true}}
  catch(x){toast('Recherche impossible (hors connexion ?)')}};
-fetch('donnees.json').then(r=>r.json()).then(d=>{D=d;build();renderList()});
+Promise.all([fetch('donnees.json').then(r=>r.json()),loadPh()]).then(([d])=>{D=d;build();renderList()});
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
 navigator.storage?.persist?.();
 </script></body></html>
