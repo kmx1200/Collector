@@ -1,6 +1,6 @@
-const C='collector-v2',T='collector-tiles',
+const C='collector-v3',T='collector-tiles',
 F=['./','index.html','donnees.json','manifest.webmanifest','icon-192.png','icon-512.png'],
-X=['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'];
+X=['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js','https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(F).then(()=>Promise.all(X.map(u=>c.add(u).catch(()=>{}))))));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C&&x!==T).map(x=>caches.delete(x)))));self.clients.claim()});
 const trim=c=>c.keys().then(k=>k.length>400&&Promise.all(k.slice(0,k.length-400).map(x=>c.delete(x))));

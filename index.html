@@ -2,50 +2,54 @@
 <html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b5394">
+<script>try{document.documentElement.dataset.theme=localStorage.mc_theme||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}</script>
 <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
 <title>Collector</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-:root{--b:#0b5394;--o:#f5a623;--bg:#f4f6f8;--t:#1d2733;--m:#6b7785;--l:#d5dbe1}
+:root{color-scheme:light;--b:#0b5394;--o:#f5a623;--bg:#f4f6f8;--t:#1d2733;--m:#6b7785;--l:#d5dbe1;--c:#fff;--s:#e6ebf0;--ro:#eef1f4}
+:root[data-theme=dark]{color-scheme:dark;--b:#3a7fc8;--bg:#12181f;--t:#e6ebf0;--m:#9aa7b4;--l:#2c3744;--c:#1b232c;--s:#2a3541;--ro:#222c36}
+[data-theme=dark] header{background:#0f2d4d}[data-theme=dark] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9)}
 *{box-sizing:border-box}[hidden]{display:none!important}
 body{margin:0;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--t)}
 header{background:var(--b);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center}
 header h1{font-size:1rem;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 button,.btn{font:inherit;border:0;border-radius:8px;padding:10px 14px;background:var(--b);color:#fff;cursor:pointer;display:inline-block}
-button.s,.btn.s{background:#e6ebf0;color:var(--t)}button.o{background:var(--o);color:var(--t)}button.d{background:#c0392b}
+button.s,.btn.s{background:var(--s);color:var(--t)}button.o{background:var(--o);color:var(--t)}button.d{background:#c0392b}
 main{max-width:900px;margin:0 auto;padding:12px 12px 90px}
-.card{background:#fff;border:1px solid var(--l);border-radius:10px;padding:12px;margin-bottom:10px}
+.card{background:var(--c);border:1px solid var(--l);border-radius:10px;padding:12px;margin-bottom:10px}
 summary{font-weight:600;cursor:pointer;color:var(--b)}details[open]>summary{margin-bottom:10px}
 .r{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:8px}
 label.f{display:flex;flex-direction:column;font-size:.8rem;color:var(--m);gap:2px}
-input,select,textarea{font:inherit;padding:9px;border:1px solid var(--l);border-radius:8px;width:100%;background:#fff;color:var(--t)}
-input[readonly]{background:#eef1f4}
+input,select,textarea{font:inherit;padding:9px;border:1px solid var(--l);border-radius:8px;width:100%;background:var(--c);color:var(--t)}
+input[readonly]{background:var(--ro)}
 .w{display:flex;gap:4px}.w input{flex:1;min-width:0}.w button{padding:6px 8px}
 .g{margin:8px 0}.g>b{font-size:.85rem}.c{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
 .ch{position:relative}.ch input{position:absolute;opacity:0;width:1px;height:1px}
-.ch span{display:block;padding:7px 12px;border:1px solid var(--l);border-radius:20px;background:#fff}
+.ch span{display:block;padding:7px 12px;border:1px solid var(--l);border-radius:20px;background:var(--c)}
 .ch input:checked+span{background:var(--b);color:#fff;border-color:var(--b)}
 .ch input:focus-visible+span{outline:2px solid var(--o)}
 .m{color:var(--m);font-size:.85rem}.a{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.a button{padding:6px 10px}
-.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--l);padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--c);border-top:1px solid var(--l);padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center}
 .bar button{flex:1;max-width:300px}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1d2733;color:#fff;padding:8px 16px;border-radius:20px;z-index:9;font-size:.9rem}
 
-#mo{position:fixed;inset:0;z-index:20;background:#fff;display:flex;flex-direction:column}
+#mo{position:fixed;inset:0;z-index:20;background:var(--c);display:flex;flex-direction:column}
 #mo .mt{display:flex;gap:6px;padding:calc(8px + env(safe-area-inset-top)) 8px 8px;background:var(--b)}#mo .mt form{flex:1;margin:0}
 #mapc{flex:1;min-height:0;position:relative;z-index:0}
-#sr{position:absolute;left:8px;right:8px;top:calc(56px + env(safe-area-inset-top));background:#fff;border:1px solid var(--l);border-radius:10px;max-height:40vh;overflow:auto;z-index:5;box-shadow:0 4px 14px #0003}
-#sr button{display:block;width:100%;text-align:left;background:#fff;color:var(--t);border-radius:0;border-bottom:1px solid var(--l)}
+#sr{position:absolute;left:8px;right:8px;top:calc(56px + env(safe-area-inset-top));background:var(--c);border:1px solid var(--l);border-radius:10px;max-height:40vh;overflow:auto;z-index:5;box-shadow:0 4px 14px #0003}
+#sr button{display:block;width:100%;text-align:left;background:var(--c);color:var(--t);border-radius:0;border-bottom:1px solid var(--l)}
 .mb{padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--l)}
 .pin{font-size:30px;line-height:30px}
 </style></head><body>
-<header><h1>Collector · ATD Questembert</h1><button id="inst" class="s" hidden>⬇ Installer</button><button id="new" class="o">＋ Nouvelle fiche</button><button id="back" class="s" hidden>← Liste</button></header>
+<header><h1>Collector · ATD Questembert</h1><button id="inst" class="s" hidden>⬇ Installer</button><button id="new" class="o">＋ Nouvelle fiche</button><button id="back" class="s" hidden>← Liste</button><button id="th" class="s" type="button" aria-label="Basculer entre thème clair et sombre">🌙</button></header>
 <main>
 <section id="lv">
  <div class="card"><input id="q" type="search" placeholder="Rechercher (commune, RD, incident…)"><p class="m" id="cnt"></p><button id="mapb" class="s" type="button">🧭 Rechercher un lieu / guidage</button></div>
  <details class="card"><summary>Export / sauvegarde</summary>
   <div class="r"><label class="f">Du<input id="d1" type="date"></label><label class="f">Au<input id="d2" type="date"></label></div>
-  <div class="a"><button id="xg">Export QGIS (GeoJSON)</button><button id="xc">Export CSV</button><button id="xj" class="s">Sauvegarde JSON</button><label class="btn s">Importer JSON<input id="imp" type="file" accept=".json" hidden></label></div>
+  <div class="a"><button id="xg">Export QGIS (GeoJSON)</button><button id="xc">Export CSV</button><button id="xp">Export PDF</button><button id="xj" class="s">Sauvegarde JSON</button><label class="btn s">Importer JSON<input id="imp" type="file" accept=".json" hidden></label></div>
+  <div class="a" id="shr" hidden><b>Envoyer (WhatsApp, messagerie, e-mail…) :</b><button id="sg" class="s" type="button">📤 GeoJSON</button><button id="sc" class="s" type="button">📤 CSV</button><button id="sp" class="s" type="button">📤 PDF</button><button id="sj" class="s" type="button">📤 Sauvegarde</button></div>
   <p class="m">GeoJSON : points GPS (WGS84, EPSG:4326). CSV : colonnes Route / Cumul_Debut pour le référencement linéaire (LRS), plus lat/lon.</p>
  </details>
  <div id="L"></div>
@@ -61,6 +65,7 @@ input[readonly]{background:#eef1f4}
   <div class="a"><button id="mu" class="o" disabled>✔ Utiliser ce point</button><button id="mg" disabled>🧭 Guidage</button><button id="mw" class="s" disabled>Waze</button><button id="mp" class="s">📍 Ma position</button></div></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const $=s=>document.querySelector(s),F=$('#F');
 let D,cur,fiches=JSON.parse(localStorage.mc||'[]');
@@ -151,13 +156,13 @@ function neu(){const d=new Date(),site=localStorage.mc_site||'Vannes_St_Ave';
  open_({id:crypto.randomUUID?crypto.randomUUID():Date.now()+'',cree:d.toISOString(),site,numero:k,dDebut:nowL(),date_fiche:nowL().slice(0,10)})}
 const card=f=>`<div class="card"><b>Fiche n°${esc(f.numero||'?')} · ${fmt(f.dDebut||f.cree)}</b><br>${esc([f.commune,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')+(f.abs?' +'+f.abs:'')].filter(Boolean).join(' · '))}
  <div class="m">${esc([...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '))} ${f.lat?'📍':'· sans GPS'}</div>
- <div class="a"><button class="s" data-a="e" data-i="${f.id}">Modifier</button>${f.lat&&f.lon?`<button class="o" data-a="g" data-i="${f.id}">🧭 Guidage</button>`:''}<button class="s" data-a="c" data-i="${f.id}">Dupliquer</button><button class="d" data-a="x" data-i="${f.id}">Supprimer</button></div></div>`;
+ <div class="a"><button class="s" data-a="e" data-i="${f.id}">Modifier</button>${f.lat&&f.lon?`<button class="o" data-a="g" data-i="${f.id}">🧭 Guidage</button>`:''}<button class="s" data-a="s" data-i="${f.id}">📤 Envoyer</button><button class="s" data-a="p" data-i="${f.id}">📄 PDF</button><button class="s" data-a="c" data-i="${f.id}">Dupliquer</button><button class="d" data-a="x" data-i="${f.id}">Supprimer</button></div></div>`;
 function renderList(){const q=$('#q').value.toLowerCase();
  const L=fiches.filter(f=>!q||JSON.stringify(f).toLowerCase().includes(q)).sort((a,b)=>(b.dDebut||b.cree).localeCompare(a.dDebut||a.cree));
  $('#L').innerHTML=L.length?L.map(card).join(''):'<p class="m">Aucune fiche.</p>';
  $('#cnt').textContent=`${L.length} fiche(s) · ${fiches.filter(f=>f.lat).length} géolocalisée(s) sur ${fiches.length}`}
 // --- exports
-const dl=(nm,t,m)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:m}));a.download=nm;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3)};
+let SH=0;const dl=(nm,t,m)=>{if(SH)return shr(nm,t,m);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:m}));a.download=nm;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3)};
 const sel=()=>{const a=$('#d1').value,b=$('#d2').value;return fiches.filter(f=>{const d=(f.dDebut||f.cree).slice(0,10);return(!a||d>=a)&&(!b||d<=b)})};
 function flat(f){const c=(D.communes[f.site]||[]).find(x=>x[1]==f.commune);
  const o={Route:f.rd,Cumul_Debut:f.cumul,insee:c?c[0]:'',...f};for(const k in o)if(Array.isArray(o[k]))o[k]=o[k].join(' | ');return o}
@@ -170,12 +175,62 @@ $('#xc').onclick=()=>{const r=sel().map(flat);if(!r.length)return toast('Aucune 
  dl(`collector_${stamp()}.csv`,'\ufeff'+[k.join(';'),...r.map(o=>k.map(c=>q(o[c])).join(';'))].join('\r\n'),'text/csv')};
 $('#xj').onclick=()=>dl(`sauvegarde_collector_${stamp()}.json`,JSON.stringify({fiches}),'application/json');
 $('#imp').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());(j.fiches||j).forEach(f=>{const i=fiches.findIndex(x=>x.id==f.id);i<0?fiches.push(f):fiches[i]=f});save();renderList();toast('Import terminé')}catch(x){toast('Fichier invalide')}e.target.value=''};
+// --- envoi par partage (WhatsApp, SMS, messagerie…)
+async function shr(nm,t,m){SH=0;
+ for(const ty of m=='application/pdf'?[m]:[m,'application/json','text/plain']){const f=new File([t],nm,{type:ty});
+  if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:nm})}catch(e){if(e.name!='AbortError')toast('Partage impossible')}return}}
+ toast('Partage de fichier non pris en charge : téléchargement');dl(nm,t,m)}
+$('#shr').hidden=!navigator.canShare;
+for(const[a,b]of[['sg','xg'],['sc','xc'],['sp','xp'],['sj','xj']])$('#'+a).onclick=()=>{SH=1;try{$('#'+b).click()}finally{SH=0}};
+function txt(f){const t=[`Fiche n°${f.numero||'?'} – ${fmt(f.dDebut||f.cree)}`,[f.commune,f.lieudit,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')].filter(Boolean).join(' · '),
+ [...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '),f.lat&&f.lon?`https://www.google.com/maps?q=${f.lat},${f.lon}`:''].filter(Boolean).join('\n');
+ if(navigator.share)navigator.share({title:'Collector',text:t}).catch(()=>{});
+ else navigator.clipboard?.writeText(t).then(()=>toast('Texte copié'))}
+// --- pdf
+const PS=[['Localisation',[['Site','site'],['Commune','commune'],['Lieu-dit','lieudit'],['R.D.','rd'],['P.R.','pr'],['Abscisse (m)','abs'],['Cumul (m)','cumul'],['Latitude','lat'],['Longitude','lon'],['Source de la position','loc_source'],['Précision GPS (m)','gps_prec']]],
+['Appel et intervention',[['N° fiche du jour','numero'],["Heure d'appel",'hAppel'],["Heure de l'accident",'hAcc'],['Début intervention','dDebut'],['Fin intervention','dFin'],['Astreinte','astreinte'],["Temps d'intervention",'tps_h']]],
+["Origine de l'appel",[['Origine','origine'],['Précisions','origine_prec'],['Interlocuteur','interlocuteur'],['Téléphone','tel']]],
+['Incident et circulation',[['Incident','incident'],['Précisions','incident_prec'],['Circulation','circulation'],['Précisions','circ_prec']]],
+['Accident',[['Usager','usager'],['Précisions','usager_prec'],['Gravité','gravite'],['Véhicules mis en cause','nb_veh']]],
+['Conditions',[['État de la chaussée','chaussee'],['Phénomène naturel','phenomene'],['Précisions','phen_prec'],['Pluie','pluie'],['Neige / verglas','neige'],['PV forces de l’ordre','pv'],['Personnes accidentées','personnes'],['Antécédents','antecedents']]],
+["Détail de l'évènement",[['Sens de circulation','sens'],["Type d'accident",'typeacc'],['Lumière','lumiere'],['Environnement','env'],['Type de croisement','croisement'],['Facteurs','facteurs'],['Précisions','fact_prec']]],
+['Observations',[['Infrastructure à vérifier','infra'],['Observations','obs'],['Agent 1','agent1'],['Agent 2','agent2'],['Date','date_fiche']]],
+['Tiers (état de frais)',[['Nom','t_nom'],['Prénom','t_prenom'],['Adresse','t_adresse'],['Code postal / Ville','t_cp_ville'],['Téléphone','t_tel'],['Véhicule – marque','v_marque'],['Véhicule – type','v_type'],['Immatriculation','v_immat'],['Compagnie d’assurance','a_compagnie'],['Agence','a_agence'],['N° police','a_police']]]];
+const sx=v=>String(v??'').replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/[–—]/g,'-').replace(/…/g,'...').replace(/œ/g,'oe').replace(/Œ/g,'OE').replace(/[\u00a0\u202f]/g,' ').replace(/[^\n\x20-\xff]/g,'');
+function makePdf(list){const{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'}),W=210,M=15,LW=52;let y=0;
+ const need=h=>{if(y+h>282){doc.addPage();y=M}};
+ const head=t=>{need(14);y+=3;doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(11,83,148);doc.text(sx(t),M,y);y+=1.5;doc.setDrawColor(213,219,225);doc.line(M,y,W-M,y);y+=5;doc.setTextColor(30,39,51)};
+ const row=(l,v)=>{doc.setFontSize(9.5);const ls=doc.splitTextToSize(sx(v),W-2*M-LW);need(ls.length*4.6+1);doc.setFont('helvetica','bold');doc.text(sx(l),M,y);doc.setFont('helvetica','normal');doc.text(ls,M+LW,y);y+=ls.length*4.6+1.2};
+ list.forEach((f,i)=>{if(i)doc.addPage();
+  doc.setFillColor(11,83,148);doc.rect(0,0,W,22,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(15);
+  doc.text(sx(`Collector – Fiche n°${f.numero||'?'}`),M,10);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(sx(`ATD Questembert · ${fmt(f.dDebut||f.cree)}`),M,17);
+  y=28;doc.setTextColor(30,39,51);
+  const val=k=>{let v=f[k];if(Array.isArray(v))v=v.join(', ');if(v==null||v==='')return'';
+   if(['hAppel','hAcc','dDebut','dFin'].includes(k))return fmt(v);if(k=='site')return String(v).replace(/_/g,' ');
+   if(k=='date_fiche')return new Date(v).toLocaleDateString('fr-FR');if(k=='tps_h')return hm(+v);return String(v)};
+  for(const[t,fl]of PS){const rows=fl.map(([l,k])=>[l,val(k)]).filter(r=>r[1]!=='');if(!rows.length)continue;head(t);rows.forEach(r=>row(...r))}
+  const it=[];VEH.forEach(k=>n(f['veh|'+k])&&it.push(['Véhicule – '+k,f['veh|'+k]+' h']));
+  MU.forEach(k=>n(f['mu|'+k])&&it.push(['Matériel – '+k,f['mu|'+k]]));MM.forEach(k=>n(f['mm|'+k])&&it.push(['Matériel – '+k,f['mm|'+k]+' ml']));
+  PERS.forEach(k=>{const a=n(f[`p|${k}|we`]),b=n(f[`p|${k}|nuit`]),c=n(f[`p|${k}|norm`]),d=n(f[`p|${k}|nb`]);
+   if(a||b||c||d)it.push([k,`${d} pers. – week-end/férié ${a} h, nuit ${b} h, normale ${c} h`])});
+  if(n(f.heures_totales))it.push(['Heures totales personnel',f.heures_totales+' h']);
+  MX.forEach(k=>n(f['mx|'+k])&&it.push([k,f['mx|'+k]]));
+  if(it.length){head('Moyens engagés');it.forEach(r=>row(...r))}});
+ const N=doc.getNumberOfPages();for(let i=1;i<=N;i++){doc.setPage(i);doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(107,119,133);doc.text(`Collector - page ${i}/${N}`,W/2,291,{align:'center'})}
+ return doc.output('blob')}
+const pname=l=>l.length==1?`collector_fiche_${l[0].numero||'x'}_${(l[0].dDebut||l[0].cree).slice(0,10)}.pdf`:`collector_fiches_${stamp()}.pdf`;
+function pdf(l,share){if(!window.jspdf)return toast('PDF indisponible : connexion requise la 1re fois');
+ const b=makePdf(l);if(share)SH=1;try{dl(pname(l),b,'application/pdf')}finally{SH=0}}
+$('#xp').onclick=()=>{const l=sel().sort((a,b)=>(a.dDebut||a.cree).localeCompare(b.dDebut||b.cree));if(!l.length)return toast('Aucune fiche');pdf(l)};
+// --- fin pdf
 // --- événements
 $('#new').onclick=neu;$('#back').onclick=$('#cancel').onclick=()=>show('list');$('#q').oninput=renderList;
 $('#save').onclick=()=>{const o={...cur,...read()};Object.assign(o,der(o));o.maj=new Date().toISOString();
  const i=fiches.findIndex(x=>x.id==o.id);i<0?fiches.push(o):fiches[i]=o;localStorage.mc_site=o.site;save();show('list');toast('Fiche enregistrée')};
 $('#L').onclick=e=>{const b=e.target.closest('button');if(!b)return;const f=fiches.find(x=>x.id==b.dataset.i);if(!f)return;
  if(b.dataset.a=='g')return nav(f.lat,f.lon);
+ if(b.dataset.a=='s')return txt(f);
+ if(b.dataset.a=='p')return pdf([f],!!navigator.canShare);
  if(b.dataset.a=='e')open_(f);
  if(b.dataset.a=='c')open_({...f,id:Date.now()+'',cree:new Date().toISOString(),numero:'',maj:undefined});
  if(b.dataset.a=='x'&&confirm('Supprimer cette fiche ?')){fiches=fiches.filter(x=>x!=f);save();renderList()}};
@@ -187,6 +242,11 @@ F.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
  if(b.id=='gps'){if(!navigator.geolocation)return toast('GPS indisponible');b.textContent='Recherche du signal…';
   navigator.geolocation.getCurrentPosition(p=>{F.lat.value=p.coords.latitude.toFixed(6);F.lon.value=p.coords.longitude.toFixed(6);F.gps_prec.value=Math.round(p.coords.accuracy);F.loc_source.value='GPS';b.textContent='📍 Position GPS actuelle';toast('Position enregistrée')},
   er=>{b.textContent='📍 Position GPS actuelle';toast('GPS : '+er.message)},{enableHighAccuracy:true,timeout:20000,maximumAge:0})}});
+// --- thème clair / sombre
+const thb=$('#th'),tm=document.querySelector('meta[name=theme-color]'),root=document.documentElement;
+function setTh(t,keep){root.dataset.theme=t;thb.textContent=t=='dark'?'☀️':'🌙';thb.title=t=='dark'?'Passer en mode clair':'Passer en mode sombre';
+ tm.content=t=='dark'?'#0f2d4d':'#0b5394';if(keep)try{localStorage.mc_theme=t}catch(e){}}
+thb.onclick=()=>setTh(root.dataset.theme=='dark'?'light':'dark',1);setTh(root.dataset.theme||'light');
 // --- installation (bouton masqué une fois installé)
 let dp;const inst=$('#inst'),mq=matchMedia('(display-mode: standalone)');
 const standalone=()=>mq.matches||navigator.standalone===true;
