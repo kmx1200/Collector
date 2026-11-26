@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b5394">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<title>Main courante</title>
+<style>
+:root{--b:#0b5394;--o:#f5a623;--bg:#f4f6f8;--t:#1d2733;--m:#6b7785;--l:#d5dbe1}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--t)}
+header{background:var(--b);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center}
+header h1{font-size:1.05rem;margin:0;flex:1}
+button,.btn{font:inherit;border:0;border-radius:8px;padding:10px 14px;background:var(--b);color:#fff;cursor:pointer;display:inline-block}
+button.s,.btn.s{background:#e6ebf0;color:var(--t)}button.o{background:var(--o);color:var(--t)}button.d{background:#c0392b}
+main{max-width:900px;margin:0 auto;padding:12px 12px 90px}
+.card{background:#fff;border:1px solid var(--l);border-radius:10px;padding:12px;margin-bottom:10px}
+summary{font-weight:600;cursor:pointer;color:var(--b)}details[open]>summary{margin-bottom:10px}
+.r{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:8px}
+label.f{display:flex;flex-direction:column;font-size:.8rem;color:var(--m);gap:2px}
+input,select,textarea{font:inherit;padding:9px;border:1px solid var(--l);border-radius:8px;width:100%;background:#fff;color:var(--t)}
+input[readonly]{background:#eef1f4}
+.w{display:flex;gap:4px}.w input{flex:1;min-width:0}.w button{padding:6px 8px}
+.g{margin:8px 0}.g>b{font-size:.85rem}.c{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.ch{position:relative}.ch input{position:absolute;opacity:0;width:1px;height:1px}
+.ch span{display:block;padding:7px 12px;border:1px solid var(--l);border-radius:20px;background:#fff}
+.ch input:checked+span{background:var(--b);color:#fff;border-color:var(--b)}
+.ch input:focus-visible+span{outline:2px solid var(--o)}
+.m{color:var(--m);font-size:.85rem}.a{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.a button{padding:6px 10px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--l);padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center}
+.bar button{flex:1;max-width:300px}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1d2733;color:#fff;padding:8px 16px;border-radius:20px;z-index:9;font-size:.9rem}
+</style></head><body>
+<header><h1>Main courante · ATD Questembert</h1><button id="new" class="o">＋ Nouvelle fiche</button><button id="back" class="s" hidden>← Liste</button></header>
+<main>
+<section id="lv">
+ <div class="card"><input id="q" type="search" placeholder="Rechercher (commune, RD, incident…)"><p class="m" id="cnt"></p></div>
+ <details class="card"><summary>Export / sauvegarde</summary>
+  <div class="r"><label class="f">Du<input id="d1" type="date"></label><label class="f">Au<input id="d2" type="date"></label></div>
+  <div class="a"><button id="xg">Export QGIS (GeoJSON)</button><button id="xc">Export CSV</button><button id="xj" class="s">Sauvegarde JSON</button><label class="btn s">Importer JSON<input id="imp" type="file" accept=".json" hidden></label></div>
+  <p class="m">GeoJSON : points GPS (WGS84, EPSG:4326). CSV : colonnes Route / Cumul_Debut pour le référencement linéaire (LRS), plus lat/lon.</p>
+ </details>
+ <div id="L"></div>
+</section>
+<section id="fv" hidden><form id="F" autocomplete="off" onsubmit="return false"></form>
+ <div class="bar"><button id="save">Enregistrer</button><button id="cancel" class="s">Annuler</button></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s),F=$('#F');
+let D,cur,fiches=JSON.parse(localStorage.mc||'[]');
+const save=()=>localStorage.mc=JSON.stringify(fiches);
+const CH={
+astreinte:["En astreinte","Hors astreinte"],
+origine:["Gendarmerie","Pompier CODIS","DIRO","Chef d'équipe ou Technicien","Autre"],
+incident:["Chute d'arbre","Objet sur la chaussée","Véhicule en panne","Véhicule au fossé","Animaux morts","Gravillon-sable-terre","Gasoil","Boue","Autres"],
+circulation:["Normale","Alternée","Bloquée","Déviation","Autres"],
+usager:["V.L.","P.L.","2 Roues","Piétons","Autres"],
+gravite:["Dégâts matériels","Dégâts corporels","Tué(s)","Blessé(s) léger(s)","Blessé(s) grave(s)"],
+chaussee:["Sèche","Mouillée","Gravillon"],
+phenomene:["Tempête","Inondation","Brouillard","Autres"],
+pluie:["Faible","Moyenne","Forte","Généralisée"],
+neige:["Fraîche","Tassée","Localisé"],
+pv:["Oui","Non","Ne sait pas"],
+personnes:["Résidence locale","Non local"],
+antecedents:["Oui","Non"],
+sens:["PR croissant","PR décroissant"],
+typeacc:["Collision","Sortie de route","Autres"],
+lumiere:["Jour","Nuit","Lever/coucher de soleil"],
+env:["Agglo","Péri-urbain","Rase campagne"],
+croisement:["Carrefour","Rond point","Courbe","Ligne droite","T à droite","T à gauche"],
+facteurs:["Vitesse","Arbre","Muret","Traversée d'animaux","Tête de buse","Poteau EDF / FT","Ponceau","Talus","Autres"]};
+const VEH=["V.L","VUL","Camion(s)","Fourgon(s)","Camion spécifique","Tracteur","FLR + remorque","Balayeuse aspiratrice","Remorque à panneaux"],
+MU=["Balise","Délinéateurs","Panneaux","Autres"],MM=["Glissières","Peintures","Reprofil accotement","Bordure"],
+PERS=["Agents","Chef d'équipe","Chef de site"],MX=["Sablage (m³)","Sel (tonnes)","Absorbant (sacs)"];
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const n=v=>parseFloat(String(v).replace(',','.'))||0;
+const nowL=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
+const fmt=d=>d?new Date(d).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'';
+const hm=h=>Math.floor(h)+' h '+String(Math.round(h%1*60)).padStart(2,'0');
+const toast=t=>{const e=document.createElement('div');e.id='toast';e.textContent=t;document.body.append(e);setTimeout(()=>e.remove(),2500)};
+// --- construction du formulaire
+const H=(t,b,o)=>`<details class="card" ${o?'open':''}><summary>${t}</summary>${b}</details>`;
+const ch=(k,l)=>`<div class="g"><b>${l}</b><div class="c">${CH[k].map(o=>`<label class="ch"><input type="checkbox" name="${k}" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('')}</div></div>`;
+const ti=(k,l,t='text')=>`<label class="f">${l}<input name="${k}" type="${t}"></label>`;
+const ni=(k,l)=>`<label class="f">${l}<input name="${k}" type="number" inputmode="decimal" step="any"></label>`;
+const ta=(k,l)=>`<label class="f">${l}<textarea name="${k}" rows="3"></textarea></label>`;
+const dt=(k,l)=>`<label class="f">${l}<span class="w"><input name="${k}" type="datetime-local"><button type="button" class="s now" data-n="${k}">Maint.</button></span></label>`;
+function build(){
+ const sites=Object.keys(D.communes);
+ F.innerHTML=
+ H('Localisation',`<div class="r"><label class="f">Site<select name="site">${sites.map(s=>`<option value="${s}">${s.replace(/_/g,' ')}</option>`).join('')}</select></label>
+ <label class="f">Commune<select name="commune"></select></label>${ti('lieudit','Lieu-dit')}
+ <label class="f">R.D.<select name="rd"></select></label><label class="f">P.R.<select name="pr"></select></label>${ni('abs','Abscisse (m)')}
+ <label class="f">Cumul (m) – calculé<input name="cumul" readonly></label></div>
+ <div class="r">${ni('lat','Latitude (WGS84)')}${ni('lon','Longitude (WGS84)')}<label class="f">Précision GPS (m)<input name="gps_prec" readonly></label></div>
+ <button type="button" id="gps" class="o">📍 Position GPS actuelle</button>`,1)+
+ H("Appel et intervention",`<div class="r">${ni('numero','N° fiche du jour')}${dt('hAppel',"Heure d'appel")}${dt('hAcc',"Heure de l'accident")}${dt('dDebut','Début intervention')}${dt('dFin','Fin intervention')}</div>
+ ${ch('astreinte','Astreinte')}<p>Temps d'intervention : <b id="tps">—</b></p>`,1)+
+ H("Origine de l'appel",`${ch('origine','Origine')}<div class="r">${ti('origine_prec','Autre – précisions')}${ti('interlocuteur','Nom & identification de l’interlocuteur')}${ti('tel','Téléphone','tel')}</div>`)+
+ H('Incident et circulation',`${ch('incident','Incident')}${ti('incident_prec','Autres – précisions')}${ch('circulation','Circulation')}${ti('circ_prec','Autres – précisions')}`,1)+
+ H('Accident',`${ch('usager','Usager')}${ti('usager_prec','Autres – précisions')}${ch('gravite','Gravité')}<div class="r">${ni('nb_veh','Nbre de véhicules mis en cause')}</div>`)+
+ H('Conditions',`${ch('chaussee','État de la chaussée')}${ch('phenomene','Phénomène naturel')}${ti('phen_prec','Autres – précisions')}${ch('pluie','Pluie')}${ch('neige','Neige / Verglas')}
+ ${ch('pv','PV forces de l’ordre établi ?')}${ch('personnes','Info personnes accidentées')}${ch('antecedents','Antécédents au même endroit')}`)+
+ H("Détail de l'évènement",`${ch('sens','Sens de circulation véhicule')}${ch('typeacc',"Type d'accident")}${ch('lumiere','Lumière')}${ch('env','Environnement')}${ch('croisement','Type de croisement')}
+ ${ch('facteurs',"Facteurs connus à l'origine de l'accident et obstacle")}${ti('fact_prec','Autres – précisions')}`)+
+ H('Observations',`${ta('infra','Infrastructure à vérifier ou observations diverses')}${ta('obs','Observations')}
+ <div class="r">${ti('agent1','Agent 1 (nom / prénom)')}${ti('agent2','Agent 2 (nom / prénom)')}${ti('date_fiche','Date','date')}</div>`,1)+
+ H("Données pour état de frais – tiers",`<div class="r">${ti('t_nom','Nom')}${ti('t_prenom','Prénom')}${ti('t_adresse','Adresse')}${ti('t_cp_ville','Code postal / Ville')}${ti('t_tel','Téléphone','tel')}
+ ${ti('v_marque','Véhicule – marque')}${ti('v_type','Type')}${ti('v_immat','Immatriculation')}${ti('a_compagnie','Compagnie d’assurance')}${ti('a_agence','Agence')}${ti('a_police','N° police')}</div>`)+
+ H('Moyens engagés',`<b>Véhicules (heures)</b><div class="r">${VEH.map(k=>ni('veh|'+k,k)).join('')}</div>
+ <b>Matériels (nbre)</b><div class="r">${MU.map(k=>ni('mu|'+k,k)).join('')}</div><b>Matériels (ml)</b><div class="r">${MM.map(k=>ni('mm|'+k,k)).join('')}</div>
+ <b>Personnel</b>${PERS.map(k=>`<div class="g"><i>${k}</i><div class="r">${ni(`p|${k}|we`,'H week-end / férié')}${ni(`p|${k}|nuit`,'H nuit (22h-7h)')}${ni(`p|${k}|norm`,'H normale')}${ni(`p|${k}|nb`,'Nombre')}</div></div>`).join('')}
+ <p>Heures totales personnel : <b id="ht">0</b></p><b>Matériaux</b><div class="r">${MX.map(k=>ni('mx|'+k,k)).join('')}</div>`);
+}
+// --- listes en cascade
+function popC(){const s=F.site.value;
+ F.commune.innerHTML='<option value="">—</option>'+(D.communes[s]||[]).map(c=>`<option>${esc(c[1])}</option>`).join('');
+ F.rd.innerHTML='<option value="">—</option>'+(D.rd[s]||[]).map(r=>`<option>${r}</option>`).join('');popPR()}
+function popPR(){F.pr.innerHTML='<option value="">—</option>'+(D.pr[F.rd.value]||[]).map(p=>`<option>${esc(p[0])}</option>`).join('')}
+// --- lecture / écriture
+function read(){const o={};for(const e of F.elements){if(!e.name)continue;
+ if(e.type=='checkbox'){(o[e.name]??=[]);if(e.checked)o[e.name].push(e.value)}else if(e.type!='button')o[e.name]=e.value}return o}
+function der(f){const p=(D.pr[f.rd]||[]).find(x=>x[0]==f.pr);let ms=f.dDebut&&f.dFin?new Date(f.dFin)-new Date(f.dDebut):NaN;if(ms<0)ms+=864e5;
+ return{cumul:p?Math.round(p[1]+n(f.abs)):'',tps_h:isNaN(ms)?'':+(ms/36e5).toFixed(2),
+ heures_totales:+PERS.reduce((s,k)=>s+(n(f[`p|${k}|we`])+n(f[`p|${k}|nuit`])+n(f[`p|${k}|norm`]))*n(f[`p|${k}|nb`]),0).toFixed(2)}}
+function calc(){const d=der(read());F.cumul.value=d.cumul;$('#tps').textContent=d.tps_h===''?'—':hm(d.tps_h);$('#ht').textContent=d.heures_totales}
+function fill(f){F.reset();F.site.value=f.site;popC();F.rd.value=f.rd||'';popPR();
+ for(const e of F.elements){if(!e.name||!(e.name in f))continue;
+ if(e.type=='checkbox')e.checked=(f[e.name]||[]).includes(e.value);else if(e.type!='button')e.value=f[e.name]}}
+// --- navigation
+function show(v){$('#lv').hidden=v!='list';$('#fv').hidden=v!='form';$('#new').hidden=v!='list';$('#back').hidden=v!='form';if(v=='list')renderList()}
+function open_(f){cur=f;fill(f);calc();show('form');scrollTo(0,0)}
+function neu(){const d=new Date(),site=localStorage.mc_site||'Vannes_St_Ave';
+ const k=fiches.filter(x=>x.site==site&&new Date(x.cree).toDateString()==d.toDateString()).length+1;
+ open_({id:crypto.randomUUID?crypto.randomUUID():Date.now()+'',cree:d.toISOString(),site,numero:k,dDebut:nowL(),date_fiche:nowL().slice(0,10)})}
+const card=f=>`<div class="card"><b>Fiche n°${esc(f.numero||'?')} · ${fmt(f.dDebut||f.cree)}</b><br>${esc([f.commune,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')+(f.abs?' +'+f.abs:'')].filter(Boolean).join(' · '))}
+ <div class="m">${esc([...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '))} ${f.lat?'📍':'· sans GPS'}</div>
+ <div class="a"><button class="s" data-a="e" data-i="${f.id}">Modifier</button><button class="s" data-a="c" data-i="${f.id}">Dupliquer</button><button class="d" data-a="x" data-i="${f.id}">Supprimer</button></div></div>`;
+function renderList(){const q=$('#q').value.toLowerCase();
+ const L=fiches.filter(f=>!q||JSON.stringify(f).toLowerCase().includes(q)).sort((a,b)=>(b.dDebut||b.cree).localeCompare(a.dDebut||a.cree));
+ $('#L').innerHTML=L.length?L.map(card).join(''):'<p class="m">Aucune fiche.</p>';
+ $('#cnt').textContent=`${L.length} fiche(s) · ${fiches.filter(f=>f.lat).length} géolocalisée(s) sur ${fiches.length}`}
+// --- exports
+const dl=(nm,t,m)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:m}));a.download=nm;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3)};
+const sel=()=>{const a=$('#d1').value,b=$('#d2').value;return fiches.filter(f=>{const d=(f.dDebut||f.cree).slice(0,10);return(!a||d>=a)&&(!b||d<=b)})};
+function flat(f){const c=(D.communes[f.site]||[]).find(x=>x[1]==f.commune);
+ const o={Route:f.rd,Cumul_Debut:f.cumul,insee:c?c[0]:'',...f};for(const k in o)if(Array.isArray(o[k]))o[k]=o[k].join(' | ');return o}
+const stamp=()=>new Date().toISOString().slice(0,10);
+$('#xg').onclick=()=>{const r=sel().map(flat).filter(r=>r.lat&&r.lon);if(!r.length)return toast('Aucune fiche géolocalisée');
+ dl(`main_courante_${stamp()}.geojson`,JSON.stringify({type:'FeatureCollection',name:'main_courante',crs:{type:'name',properties:{name:'urn:ogc:def:crs:OGC:1.3:CRS84'}},
+ features:r.map(p=>({type:'Feature',properties:p,geometry:{type:'Point',coordinates:[+p.lon,+p.lat]}}))}),'application/geo+json')};
+$('#xc').onclick=()=>{const r=sel().map(flat);if(!r.length)return toast('Aucune fiche');const k=[...new Set(r.flatMap(Object.keys))];
+ const q=v=>{v=String(v??'').replace(/\r?\n/g,' ');return/[";]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+ dl(`main_courante_${stamp()}.csv`,'\ufeff'+[k.join(';'),...r.map(o=>k.map(c=>q(o[c])).join(';'))].join('\r\n'),'text/csv')};
+$('#xj').onclick=()=>dl(`sauvegarde_main_courante_${stamp()}.json`,JSON.stringify({fiches}),'application/json');
+$('#imp').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());(j.fiches||j).forEach(f=>{const i=fiches.findIndex(x=>x.id==f.id);i<0?fiches.push(f):fiches[i]=f});save();renderList();toast('Import terminé')}catch(x){toast('Fichier invalide')}e.target.value=''};
+// --- événements
+$('#new').onclick=neu;$('#back').onclick=$('#cancel').onclick=()=>show('list');$('#q').oninput=renderList;
+$('#save').onclick=()=>{const o={...cur,...read()};Object.assign(o,der(o));o.maj=new Date().toISOString();
+ const i=fiches.findIndex(x=>x.id==o.id);i<0?fiches.push(o):fiches[i]=o;localStorage.mc_site=o.site;save();show('list');toast('Fiche enregistrée')};
+$('#L').onclick=e=>{const b=e.target.closest('button');if(!b)return;const f=fiches.find(x=>x.id==b.dataset.i);if(!f)return;
+ if(b.dataset.a=='e')open_(f);
+ if(b.dataset.a=='c')open_({...f,id:Date.now()+'',cree:new Date().toISOString(),numero:'',maj:undefined});
+ if(b.dataset.a=='x'&&confirm('Supprimer cette fiche ?')){fiches=fiches.filter(x=>x!=f);save();renderList()}};
+F.addEventListener('change',e=>{if(e.target.name=='site')popC();if(e.target.name=='rd')popPR();calc()});
+F.addEventListener('input',calc);
+F.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.classList.contains('now')){F.elements[b.dataset.n].value=nowL();calc()}
+ if(b.id=='gps'){if(!navigator.geolocation)return toast('GPS indisponible');b.textContent='Recherche du signal…';
+  navigator.geolocation.getCurrentPosition(p=>{F.lat.value=p.coords.latitude.toFixed(6);F.lon.value=p.coords.longitude.toFixed(6);F.gps_prec.value=Math.round(p.coords.accuracy);b.textContent='📍 Position GPS actuelle';toast('Position enregistrée')},
+  er=>{b.textContent='📍 Position GPS actuelle';toast('GPS : '+er.message)},{enableHighAccuracy:true,timeout:20000,maximumAge:0})}});
+fetch('donnees.json').then(r=>r.json()).then(d=>{D=d;build();renderList()});
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+navigator.storage?.persist?.();
+</script></body></html>
