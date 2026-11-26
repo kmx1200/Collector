@@ -48,7 +48,7 @@ input[readonly]{background:var(--ro)}
  <div class="card"><input id="q" type="search" placeholder="Rechercher (commune, RD, incident…)"><p class="m" id="cnt"></p><button id="mapb" class="s" type="button">🧭 Rechercher un lieu / guidage</button></div>
  <details class="card"><summary>Export / sauvegarde</summary>
   <div class="r"><label class="f">Du<input id="d1" type="date"></label><label class="f">Au<input id="d2" type="date"></label></div>
-  <div class="a"><button id="xg">Export QGIS (GeoJSON)</button><button id="xc">Export CSV</button><button id="xp">Export PDF</button><button id="xj" class="s">Sauvegarde JSON</button><label class="btn s">Importer JSON<input id="imp" type="file" accept=".json" hidden></label></div>
+  <div class="a"><button id="xg">Export QGIS (GeoJSON)</button><button id="xc">Export CSV</button><button id="xp">Export PDF</button><button id="xj" class="s">Sauvegarde JSON</button><label class="btn s">Importer JSON<input id="imp" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div>
   <div class="a" id="shr" hidden><b>Envoyer (WhatsApp, messagerie, e-mail…) :</b><button id="sg" class="s" type="button">📤 GeoJSON</button><button id="sc" class="s" type="button">📤 CSV</button><button id="sp" class="s" type="button">📤 PDF</button><button id="sj" class="s" type="button">📤 Sauvegarde</button></div>
   <p class="m">GeoJSON : points GPS (WGS84, EPSG:4326). CSV : colonnes Route / Cumul_Debut pour le référencement linéaire (LRS), plus lat/lon.</p>
  </details>
@@ -177,10 +177,10 @@ $('#xj').onclick=()=>dl(`sauvegarde_collector_${stamp()}.json`,JSON.stringify({f
 $('#imp').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());(j.fiches||j).forEach(f=>{const i=fiches.findIndex(x=>x.id==f.id);i<0?fiches.push(f):fiches[i]=f});save();renderList();toast('Import terminé')}catch(x){toast('Fichier invalide')}e.target.value=''};
 // --- envoi par partage (WhatsApp, SMS, messagerie…)
 async function shr(nm,t,m){SH=0;
- const c=m=='application/pdf'?[[nm,m]]:[[nm,m],[nm,'application/json'],[nm.replace(/\.geojson$/,'.json'),'application/json'],[nm+'.txt','text/plain']];
+ const risky=!ios&&!/\.(csv|txt|pdf)$/i.test(nm),c=m=='application/pdf'?[[nm,m]]:risky?[[nm+'.txt','text/plain']]:[[nm,m],[nm,'application/json'],[nm+'.txt','text/plain']];
  for(const[a,ty]of c){const f=new File([t],a,{type:ty});
   if(navigator.canShare?.({files:[f]})){if(a!=nm)toast(a.endsWith('.txt')?'Envoyé en .txt : renommez en '+nm:'Envoyé sous le nom '+a);
-   try{await navigator.share({files:[f],title:a})}catch(e){if(e.name!='AbortError')toast(e.name=='NotAllowedError'?'Touchez de nouveau le bouton pour envoyer':'Partage impossible : '+(e.name||'')+' '+(e.message||''))}return}}
+   try{await navigator.share({files:[f],title:a})}catch(e){if(e.name!='AbortError')toast(e.name=='NotAllowedError'&&m=='application/pdf'?'Touchez de nouveau le bouton pour envoyer':'Partage impossible : '+(e.name||'')+' '+(e.message||''))}return}}
  toast('Partage de fichier non pris en charge : téléchargement');dl(nm,t,m)}
 $('#shr').hidden=!navigator.canShare;
 for(const[a,b]of[['sg','xg'],['sc','xc'],['sj','xj']])$('#'+a).onclick=()=>{SH=1;try{$('#'+b).click()}finally{SH=0}};
