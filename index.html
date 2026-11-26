@@ -9,7 +9,7 @@
 <style>
 :root{color-scheme:light;--b:#0b5394;--o:#f5a623;--bg:#f4f6f8;--t:#1d2733;--m:#6b7785;--l:#d5dbe1;--c:#fff;--s:#e6ebf0;--ro:#eef1f4}
 :root[data-theme=dark]{color-scheme:dark;--b:#3a7fc8;--bg:#12181f;--t:#e6ebf0;--m:#9aa7b4;--l:#2c3744;--c:#1b232c;--s:#2a3541;--ro:#222c36}
-[data-theme=dark] header{background:#0f2d4d}[data-theme=dark] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9)}
+[data-theme=dark] header{background:#0f2d4d}
 *{box-sizing:border-box}[hidden]{display:none!important}
 body{margin:0;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--t)}
 header{background:var(--b);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center}
@@ -177,11 +177,13 @@ $('#xj').onclick=()=>dl(`sauvegarde_collector_${stamp()}.json`,JSON.stringify({f
 $('#imp').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());(j.fiches||j).forEach(f=>{const i=fiches.findIndex(x=>x.id==f.id);i<0?fiches.push(f):fiches[i]=f});save();renderList();toast('Import terminé')}catch(x){toast('Fichier invalide')}e.target.value=''};
 // --- envoi par partage (WhatsApp, SMS, messagerie…)
 async function shr(nm,t,m){SH=0;
- for(const ty of m=='application/pdf'?[m]:[m,'application/json','text/plain']){const f=new File([t],nm,{type:ty});
-  if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],title:nm})}catch(e){if(e.name!='AbortError')toast('Partage impossible')}return}}
+ const c=m=='application/pdf'?[[nm,m]]:[[nm,m],[nm,'application/json'],[nm.replace(/\.geojson$/,'.json'),'application/json'],[nm+'.txt','text/plain']];
+ for(const[a,ty]of c){const f=new File([t],a,{type:ty});
+  if(navigator.canShare?.({files:[f]})){if(a!=nm)toast(a.endsWith('.txt')?'Envoyé en .txt : renommez en '+nm:'Envoyé sous le nom '+a);
+   try{await navigator.share({files:[f],title:a})}catch(e){if(e.name!='AbortError')toast(e.name=='NotAllowedError'?'Touchez de nouveau le bouton pour envoyer':'Partage impossible : '+(e.name||'')+' '+(e.message||''))}return}}
  toast('Partage de fichier non pris en charge : téléchargement');dl(nm,t,m)}
 $('#shr').hidden=!navigator.canShare;
-for(const[a,b]of[['sg','xg'],['sc','xc'],['sp','xp'],['sj','xj']])$('#'+a).onclick=()=>{SH=1;try{$('#'+b).click()}finally{SH=0}};
+for(const[a,b]of[['sg','xg'],['sc','xc'],['sj','xj']])$('#'+a).onclick=()=>{SH=1;try{$('#'+b).click()}finally{SH=0}};
 function txt(f){const t=[`Fiche n°${f.numero||'?'} – ${fmt(f.dDebut||f.cree)}`,[f.commune,f.lieudit,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')].filter(Boolean).join(' · '),
  [...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '),f.lat&&f.lon?`https://www.google.com/maps?q=${f.lat},${f.lon}`:''].filter(Boolean).join('\n');
  if(navigator.share)navigator.share({title:'Collector',text:t}).catch(()=>{});
@@ -197,7 +199,21 @@ const PS=[['Localisation',[['Site','site'],['Commune','commune'],['Lieu-dit','li
 ['Observations',[['Infrastructure à vérifier','infra'],['Observations','obs'],['Agent 1','agent1'],['Agent 2','agent2'],['Date','date_fiche']]],
 ['Tiers (état de frais)',[['Nom','t_nom'],['Prénom','t_prenom'],['Adresse','t_adresse'],['Code postal / Ville','t_cp_ville'],['Téléphone','t_tel'],['Véhicule – marque','v_marque'],['Véhicule – type','v_type'],['Immatriculation','v_immat'],['Compagnie d’assurance','a_compagnie'],['Agence','a_agence'],['N° police','a_police']]]];
 const sx=v=>String(v??'').replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/[–—]/g,'-').replace(/…/g,'...').replace(/œ/g,'oe').replace(/Œ/g,'OE').replace(/[\u00a0\u202f]/g,' ').replace(/[^\n\x20-\xff]/g,'');
-function makePdf(list){const{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'}),W=210,M=15,LW=52;let y=0;
+// carte de localisation : assemblage de tuiles OpenStreetMap
+let mapMiss=false;const TC=new Map();
+function tile(z,x,y){const u=`https://tile.openstreetmap.org/${z}/${x}/${y}.png`;if(TC.has(u))return TC.get(u);
+ const p=new Promise(res=>{const im=new Image(),t=setTimeout(()=>res(null),10000);im.crossOrigin='anonymous';im.onload=()=>{clearTimeout(t);res(im)};im.onerror=()=>{clearTimeout(t);res(null)};im.src=u});TC.set(u,p);return p}
+async function mapImg(lat,lon,z=16){const S=256,W=768,H=341,k=2**z,r=lat*Math.PI/180,
+ cx=(lon+180)/360*k*S,cy=(1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*k*S,x0=cx-W/2,y0=cy-H/2,jobs=[];
+ for(let tx=Math.floor(x0/S);tx<=Math.floor((x0+W)/S);tx++)for(let ty=Math.floor(y0/S);ty<=Math.floor((y0+H)/S);ty++)jobs.push(tile(z,tx,ty).then(im=>({im,tx,ty})));
+ const got=await Promise.all(jobs);if(!got.some(o=>o.im)){mapMiss=true;return null}if(got.some(o=>!o.im))mapMiss=true;
+ const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');g.fillStyle='#e5e5e5';g.fillRect(0,0,W,H);
+ got.forEach(({im,tx,ty})=>im&&g.drawImage(im,tx*S-x0,ty*S-y0));
+ g.fillStyle='#d93025';g.strokeStyle='#fff';g.lineWidth=4;g.beginPath();g.arc(W/2,H/2,12,0,7);g.fill();g.stroke();g.fillStyle='#fff';g.beginPath();g.arc(W/2,H/2,4,0,7);g.fill();
+ g.font='11px sans-serif';const t='© OpenStreetMap contributors',w=g.measureText(t).width;g.fillStyle='rgba(255,255,255,.85)';g.fillRect(W-w-10,H-18,w+10,18);g.fillStyle='#333';g.fillText(t,W-w-5,H-5);
+ try{return c.toDataURL('image/jpeg',.85)}catch(e){mapMiss=true;return null}}
+async function makePdf(list){const{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'}),W=210,M=15,LW=52;let y=0;
+ mapMiss=false;const maps=[];for(const f of list)maps.push(f.lat&&f.lon&&isFinite(+f.lat)&&isFinite(+f.lon)?await mapImg(+f.lat,+f.lon):null);TC.clear();
  const need=h=>{if(y+h>282){doc.addPage();y=M}};
  const head=t=>{need(14);y+=3;doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(11,83,148);doc.text(sx(t),M,y);y+=1.5;doc.setDrawColor(213,219,225);doc.line(M,y,W-M,y);y+=5;doc.setTextColor(30,39,51)};
  const row=(l,v)=>{doc.setFontSize(9.5);const ls=doc.splitTextToSize(sx(v),W-2*M-LW);need(ls.length*4.6+1);doc.setFont('helvetica','bold');doc.text(sx(l),M,y);doc.setFont('helvetica','normal');doc.text(ls,M+LW,y);y+=ls.length*4.6+1.2};
@@ -208,7 +224,9 @@ function makePdf(list){const{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format
   const val=k=>{let v=f[k];if(Array.isArray(v))v=v.join(', ');if(v==null||v==='')return'';
    if(['hAppel','hAcc','dDebut','dFin'].includes(k))return fmt(v);if(k=='site')return String(v).replace(/_/g,' ');
    if(k=='date_fiche')return new Date(v).toLocaleDateString('fr-FR');if(k=='tps_h')return hm(+v);return String(v)};
-  for(const[t,fl]of PS){const rows=fl.map(([l,k])=>[l,val(k)]).filter(r=>r[1]!=='');if(!rows.length)continue;head(t);rows.forEach(r=>row(...r))}
+  for(const[t,fl]of PS){const rows=fl.map(([l,k])=>[l,val(k)]).filter(r=>r[1]!=='');if(!rows.length)continue;head(t);rows.forEach(r=>row(...r));
+   if(t=='Localisation'&&maps[i]){const h=(W-2*M)*341/768;need(h+7);doc.addImage(maps[i],'JPEG',M,y,W-2*M,h);y+=h+3;doc.setFontSize(7.5);doc.setTextColor(107,119,133);
+    doc.text('Position de l\'intervention - fond de carte © OpenStreetMap contributors',M,y);y+=5;doc.setTextColor(30,39,51)}}
   const it=[];VEH.forEach(k=>n(f['veh|'+k])&&it.push(['Véhicule – '+k,f['veh|'+k]+' h']));
   MU.forEach(k=>n(f['mu|'+k])&&it.push(['Matériel – '+k,f['mu|'+k]]));MM.forEach(k=>n(f['mm|'+k])&&it.push(['Matériel – '+k,f['mm|'+k]+' ml']));
   PERS.forEach(k=>{const a=n(f[`p|${k}|we`]),b=n(f[`p|${k}|nuit`]),c=n(f[`p|${k}|norm`]),d=n(f[`p|${k}|nb`]);
@@ -219,9 +237,16 @@ function makePdf(list){const{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format
  const N=doc.getNumberOfPages();for(let i=1;i<=N;i++){doc.setPage(i);doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(107,119,133);doc.text(`Collector - page ${i}/${N}`,W/2,291,{align:'center'})}
  return doc.output('blob')}
 const pname=l=>l.length==1?`collector_fiche_${l[0].numero||'x'}_${(l[0].dDebut||l[0].cree).slice(0,10)}.pdf`:`collector_fiches_${stamp()}.pdf`;
-function pdf(l,share){if(!window.jspdf)return toast('PDF indisponible : connexion requise la 1re fois');
- const b=makePdf(l);if(share)SH=1;try{dl(pname(l),b,'application/pdf')}finally{SH=0}}
-$('#xp').onclick=()=>{const l=sel().sort((a,b)=>(a.dDebut||a.cree).localeCompare(b.dDebut||b.cree));if(!l.length)return toast('Aucune fiche');pdf(l)};
+const pc={};
+async function pdf(l,share){if(!window.jspdf)return toast('PDF indisponible : connexion requise la 1re fois');
+ const key=l.map(f=>f.id+(f.maj||'')).join();
+ if(pc.key!=key||!pc.blob){toast('Préparation du PDF…');
+  try{pc.blob=await makePdf(l);pc.key=mapMiss?'':key}catch(e){return toast('Erreur PDF : '+e.message)}
+  if(mapMiss)toast('Fond de carte incomplet (connexion ?)')}
+ if(share)SH=1;try{dl(pname(l),pc.blob,'application/pdf')}finally{SH=0}}
+const plist=()=>sel().sort((a,b)=>(a.dDebut||a.cree).localeCompare(b.dDebut||b.cree));
+$('#xp').onclick=()=>{const l=plist();if(!l.length)return toast('Aucune fiche');pdf(l)};
+$('#sp').onclick=()=>{const l=plist();if(!l.length)return toast('Aucune fiche');pdf(l,true)};
 // --- fin pdf
 // --- événements
 $('#new').onclick=neu;$('#back').onclick=$('#cancel').onclick=()=>show('list');$('#q').oninput=renderList;
