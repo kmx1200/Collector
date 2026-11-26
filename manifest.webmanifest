@@ -1,6 +1,6 @@
 {
- "name": "Main courante exploitation routière",
- "short_name": "Main courante",
+ "name": "Collector",
+ "short_name": "Collector",
  "start_url": "./index.html",
  "scope": "./",
  "display": "standalone",

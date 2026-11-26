@@ -3,13 +3,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b5394">
 <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
-<title>Main courante</title>
+<title>Collector</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
 :root{--b:#0b5394;--o:#f5a623;--bg:#f4f6f8;--t:#1d2733;--m:#6b7785;--l:#d5dbe1}
 *{box-sizing:border-box}[hidden]{display:none!important}
 body{margin:0;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--t)}
 header{background:var(--b);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center}
-header h1{font-size:1.05rem;margin:0;flex:1}
+header h1{font-size:1rem;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 button,.btn{font:inherit;border:0;border-radius:8px;padding:10px 14px;background:var(--b);color:#fff;cursor:pointer;display:inline-block}
 button.s,.btn.s{background:#e6ebf0;color:var(--t)}button.o{background:var(--o);color:var(--t)}button.d{background:#c0392b}
 main{max-width:900px;margin:0 auto;padding:12px 12px 90px}
@@ -29,11 +30,19 @@ input[readonly]{background:#eef1f4}
 .bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--l);padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center}
 .bar button{flex:1;max-width:300px}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1d2733;color:#fff;padding:8px 16px;border-radius:20px;z-index:9;font-size:.9rem}
+
+#mo{position:fixed;inset:0;z-index:20;background:#fff;display:flex;flex-direction:column}
+#mo .mt{display:flex;gap:6px;padding:calc(8px + env(safe-area-inset-top)) 8px 8px;background:var(--b)}#mo .mt form{flex:1;margin:0}
+#mapc{flex:1;min-height:0;position:relative;z-index:0}
+#sr{position:absolute;left:8px;right:8px;top:calc(56px + env(safe-area-inset-top));background:#fff;border:1px solid var(--l);border-radius:10px;max-height:40vh;overflow:auto;z-index:5;box-shadow:0 4px 14px #0003}
+#sr button{display:block;width:100%;text-align:left;background:#fff;color:var(--t);border-radius:0;border-bottom:1px solid var(--l)}
+.mb{padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--l)}
+.pin{font-size:30px;line-height:30px}
 </style></head><body>
-<header><h1>Main courante · ATD Questembert</h1><button id="new" class="o">＋ Nouvelle fiche</button><button id="back" class="s" hidden>← Liste</button></header>
+<header><h1>Collector · ATD Questembert</h1><button id="inst" class="s" hidden>⬇ Installer</button><button id="new" class="o">＋ Nouvelle fiche</button><button id="back" class="s" hidden>← Liste</button></header>
 <main>
 <section id="lv">
- <div class="card"><input id="q" type="search" placeholder="Rechercher (commune, RD, incident…)"><p class="m" id="cnt"></p></div>
+ <div class="card"><input id="q" type="search" placeholder="Rechercher (commune, RD, incident…)"><p class="m" id="cnt"></p><button id="mapb" class="s" type="button">🧭 Rechercher un lieu / guidage</button></div>
  <details class="card"><summary>Export / sauvegarde</summary>
   <div class="r"><label class="f">Du<input id="d1" type="date"></label><label class="f">Au<input id="d2" type="date"></label></div>
   <div class="a"><button id="xg">Export QGIS (GeoJSON)</button><button id="xc">Export CSV</button><button id="xj" class="s">Sauvegarde JSON</button><label class="btn s">Importer JSON<input id="imp" type="file" accept=".json" hidden></label></div>
@@ -44,6 +53,14 @@ input[readonly]{background:#eef1f4}
 <section id="fv" hidden><form id="F" autocomplete="off" onsubmit="return false"></form>
  <div class="bar"><button id="save">Enregistrer</button><button id="cancel" class="s">Annuler</button></div></section>
 </main>
+<div id="mo" hidden>
+ <div class="mt"><form id="sf" class="w"><input id="sq" type="search" placeholder="Adresse, commune, lieu… ou lat, lon"><button>🔍</button></form><button id="mx" class="s" type="button">✕</button></div>
+ <div id="sr" hidden></div>
+ <div id="mapc"></div>
+ <div class="mb"><div class="m" id="mi">Touchez la carte pour placer un point</div>
+  <div class="a"><button id="mu" class="o" disabled>✔ Utiliser ce point</button><button id="mg" disabled>🧭 Guidage</button><button id="mw" class="s" disabled>Waze</button><button id="mp" class="s">📍 Ma position</button></div></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const $=s=>document.querySelector(s),F=$('#F');
 let D,cur,fiches=JSON.parse(localStorage.mc||'[]');
@@ -91,8 +108,8 @@ function build(){
  <label class="f">Commune<select name="commune"></select></label>${ti('lieudit','Lieu-dit')}
  <label class="f">R.D.<select name="rd"></select></label><label class="f">P.R.<select name="pr"></select></label>${ni('abs','Abscisse (m)')}
  <label class="f">Cumul (m) – calculé<input name="cumul" readonly></label></div>
- <div class="r">${ni('lat','Latitude (WGS84)')}${ni('lon','Longitude (WGS84)')}<label class="f">Précision GPS (m)<input name="gps_prec" readonly></label></div>
- <button type="button" id="gps" class="o">📍 Position GPS actuelle</button>`,1)+
+ <div class="r">${ni('lat','Latitude (WGS84)')}${ni('lon','Longitude (WGS84)')}<label class="f">Précision GPS (m)<input name="gps_prec" readonly></label><label class="f">Source de la position<input name="loc_source" readonly></label></div>
+ <div class="a"><button type="button" id="gps" class="o">📍 Position GPS actuelle</button><button type="button" id="pick" class="s">🗺️ Choisir sur la carte</button></div>`,1)+
  H("Appel et intervention",`<div class="r">${ni('numero','N° fiche du jour')}${dt('hAppel',"Heure d'appel")}${dt('hAcc',"Heure de l'accident")}${dt('dDebut','Début intervention')}${dt('dFin','Fin intervention')}</div>
  ${ch('astreinte','Astreinte')}<p>Temps d'intervention : <b id="tps">—</b></p>`,1)+
  H("Origine de l'appel",`${ch('origine','Origine')}<div class="r">${ti('origine_prec','Autre – précisions')}${ti('interlocuteur','Nom & identification de l’interlocuteur')}${ti('tel','Téléphone','tel')}</div>`)+
@@ -134,7 +151,7 @@ function neu(){const d=new Date(),site=localStorage.mc_site||'Vannes_St_Ave';
  open_({id:crypto.randomUUID?crypto.randomUUID():Date.now()+'',cree:d.toISOString(),site,numero:k,dDebut:nowL(),date_fiche:nowL().slice(0,10)})}
 const card=f=>`<div class="card"><b>Fiche n°${esc(f.numero||'?')} · ${fmt(f.dDebut||f.cree)}</b><br>${esc([f.commune,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')+(f.abs?' +'+f.abs:'')].filter(Boolean).join(' · '))}
  <div class="m">${esc([...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '))} ${f.lat?'📍':'· sans GPS'}</div>
- <div class="a"><button class="s" data-a="e" data-i="${f.id}">Modifier</button><button class="s" data-a="c" data-i="${f.id}">Dupliquer</button><button class="d" data-a="x" data-i="${f.id}">Supprimer</button></div></div>`;
+ <div class="a"><button class="s" data-a="e" data-i="${f.id}">Modifier</button>${f.lat&&f.lon?`<button class="o" data-a="g" data-i="${f.id}">🧭 Guidage</button>`:''}<button class="s" data-a="c" data-i="${f.id}">Dupliquer</button><button class="d" data-a="x" data-i="${f.id}">Supprimer</button></div></div>`;
 function renderList(){const q=$('#q').value.toLowerCase();
  const L=fiches.filter(f=>!q||JSON.stringify(f).toLowerCase().includes(q)).sort((a,b)=>(b.dDebut||b.cree).localeCompare(a.dDebut||a.cree));
  $('#L').innerHTML=L.length?L.map(card).join(''):'<p class="m">Aucune fiche.</p>';
@@ -146,28 +163,73 @@ function flat(f){const c=(D.communes[f.site]||[]).find(x=>x[1]==f.commune);
  const o={Route:f.rd,Cumul_Debut:f.cumul,insee:c?c[0]:'',...f};for(const k in o)if(Array.isArray(o[k]))o[k]=o[k].join(' | ');return o}
 const stamp=()=>new Date().toISOString().slice(0,10);
 $('#xg').onclick=()=>{const r=sel().map(flat).filter(r=>r.lat&&r.lon);if(!r.length)return toast('Aucune fiche géolocalisée');
- dl(`main_courante_${stamp()}.geojson`,JSON.stringify({type:'FeatureCollection',name:'main_courante',crs:{type:'name',properties:{name:'urn:ogc:def:crs:OGC:1.3:CRS84'}},
+ dl(`collector_${stamp()}.geojson`,JSON.stringify({type:'FeatureCollection',name:'collector',crs:{type:'name',properties:{name:'urn:ogc:def:crs:OGC:1.3:CRS84'}},
  features:r.map(p=>({type:'Feature',properties:p,geometry:{type:'Point',coordinates:[+p.lon,+p.lat]}}))}),'application/geo+json')};
 $('#xc').onclick=()=>{const r=sel().map(flat);if(!r.length)return toast('Aucune fiche');const k=[...new Set(r.flatMap(Object.keys))];
  const q=v=>{v=String(v??'').replace(/\r?\n/g,' ');return/[";]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
- dl(`main_courante_${stamp()}.csv`,'\ufeff'+[k.join(';'),...r.map(o=>k.map(c=>q(o[c])).join(';'))].join('\r\n'),'text/csv')};
-$('#xj').onclick=()=>dl(`sauvegarde_main_courante_${stamp()}.json`,JSON.stringify({fiches}),'application/json');
+ dl(`collector_${stamp()}.csv`,'\ufeff'+[k.join(';'),...r.map(o=>k.map(c=>q(o[c])).join(';'))].join('\r\n'),'text/csv')};
+$('#xj').onclick=()=>dl(`sauvegarde_collector_${stamp()}.json`,JSON.stringify({fiches}),'application/json');
 $('#imp').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());(j.fiches||j).forEach(f=>{const i=fiches.findIndex(x=>x.id==f.id);i<0?fiches.push(f):fiches[i]=f});save();renderList();toast('Import terminé')}catch(x){toast('Fichier invalide')}e.target.value=''};
 // --- événements
 $('#new').onclick=neu;$('#back').onclick=$('#cancel').onclick=()=>show('list');$('#q').oninput=renderList;
 $('#save').onclick=()=>{const o={...cur,...read()};Object.assign(o,der(o));o.maj=new Date().toISOString();
  const i=fiches.findIndex(x=>x.id==o.id);i<0?fiches.push(o):fiches[i]=o;localStorage.mc_site=o.site;save();show('list');toast('Fiche enregistrée')};
 $('#L').onclick=e=>{const b=e.target.closest('button');if(!b)return;const f=fiches.find(x=>x.id==b.dataset.i);if(!f)return;
+ if(b.dataset.a=='g')return nav(f.lat,f.lon);
  if(b.dataset.a=='e')open_(f);
  if(b.dataset.a=='c')open_({...f,id:Date.now()+'',cree:new Date().toISOString(),numero:'',maj:undefined});
  if(b.dataset.a=='x'&&confirm('Supprimer cette fiche ?')){fiches=fiches.filter(x=>x!=f);save();renderList()}};
 F.addEventListener('change',e=>{if(e.target.name=='site')popC();if(e.target.name=='rd')popPR();calc()});
 F.addEventListener('input',calc);
 F.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.id=='pick')return openMap('form');
  if(b.classList.contains('now')){F.elements[b.dataset.n].value=nowL();calc()}
  if(b.id=='gps'){if(!navigator.geolocation)return toast('GPS indisponible');b.textContent='Recherche du signal…';
-  navigator.geolocation.getCurrentPosition(p=>{F.lat.value=p.coords.latitude.toFixed(6);F.lon.value=p.coords.longitude.toFixed(6);F.gps_prec.value=Math.round(p.coords.accuracy);b.textContent='📍 Position GPS actuelle';toast('Position enregistrée')},
+  navigator.geolocation.getCurrentPosition(p=>{F.lat.value=p.coords.latitude.toFixed(6);F.lon.value=p.coords.longitude.toFixed(6);F.gps_prec.value=Math.round(p.coords.accuracy);F.loc_source.value='GPS';b.textContent='📍 Position GPS actuelle';toast('Position enregistrée')},
   er=>{b.textContent='📍 Position GPS actuelle';toast('GPS : '+er.message)},{enableHighAccuracy:true,timeout:20000,maximumAge:0})}});
+// --- installation (bouton masqué une fois installé)
+let dp;const inst=$('#inst'),mq=matchMedia('(display-mode: standalone)');
+const standalone=()=>mq.matches||navigator.standalone===true;
+const ios=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const refreshInst=()=>inst.hidden=standalone()||!(dp||ios);
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;refreshInst()});
+addEventListener('appinstalled',()=>{dp=null;inst.hidden=true;toast('Collector installé')});
+mq.addEventListener?.('change',refreshInst);refreshInst();
+inst.onclick=async()=>{if(dp){dp.prompt();await dp.userChoice;dp=null;refreshInst()}else alert('Pour installer Collector : bouton Partager (carré avec flèche), puis « Sur l’écran d’accueil ».')};
+// --- carte, recherche de lieu, guidage
+let map,mk,pt,me;
+const nav=(la,lo,w)=>open(w=='waze'?`https://waze.com/ul?ll=${la},${lo}&navigate=yes`:ios?`https://maps.apple.com/?daddr=${la},${lo}&dirflg=d`:`https://www.google.com/maps/dir/?api=1&destination=${la},${lo}&travelmode=driving`,'_blank');
+function setPt(la,lo){pt={la,lo};
+ if(!mk){mk=L.marker([la,lo],{draggable:true,icon:L.divIcon({html:'<div class="pin">📍</div>',className:'',iconSize:[30,30],iconAnchor:[15,30]})}).addTo(map);
+  mk.on('dragend',()=>{const p=mk.getLatLng();setPt(p.lat,p.lng)})}else mk.setLatLng([la,lo]);
+ $('#mi').textContent=`Point : ${la.toFixed(6)} ; ${lo.toFixed(6)}`;$('#mu').disabled=$('#mg').disabled=$('#mw').disabled=false}
+function clearPt(){pt=null;if(mk){map.removeLayer(mk);mk=null}$('#mi').textContent='Touchez la carte pour placer un point';$('#mu').disabled=$('#mg').disabled=$('#mw').disabled=true}
+function openMap(m){if(!window.L)return toast('Carte indisponible : connexion requise la 1re fois');
+ $('#mo').hidden=false;$('#sr').hidden=true;$('#mu').hidden=m!='form';
+ if(!map){map=L.map('mapc').setView([47.66,-2.56],11);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,crossOrigin:true,attribution:'© OpenStreetMap'}).addTo(map);
+  map.on('click',e=>setPt(e.latlng.lat,e.latlng.lng))}
+ clearPt();$('#sq').value=m=='form'?[F.lieudit.value,F.commune.value].filter(Boolean).join(' '):'';
+ setTimeout(()=>{map.invalidateSize();const la=parseFloat(F.lat.value),lo=parseFloat(F.lon.value);
+  if(m=='form'&&!isNaN(la)&&!isNaN(lo)){setPt(la,lo);map.setView([la,lo],16)}},60)}
+$('#mapb').onclick=()=>openMap('free');
+$('#mx').onclick=()=>$('#mo').hidden=true;
+$('#mg').onclick=()=>pt&&nav(pt.la,pt.lo);$('#mw').onclick=()=>pt&&nav(pt.la,pt.lo,'waze');
+$('#mu').onclick=()=>{if(!pt)return;F.lat.value=pt.la.toFixed(6);F.lon.value=pt.lo.toFixed(6);F.gps_prec.value='';F.loc_source.value='Carte (pointé)';
+ $('#mo').hidden=true;toast('Point enregistré depuis la carte')};
+$('#mp').onclick=()=>{if(!navigator.geolocation)return toast('GPS indisponible');
+ navigator.geolocation.getCurrentPosition(p=>{const c=[p.coords.latitude,p.coords.longitude];map.setView(c,16);
+  if(me)map.removeLayer(me);me=L.circleMarker(c,{radius:8,color:'#fff',weight:2,fillColor:'#1a73e8',fillOpacity:1}).addTo(map)},
+  er=>toast('GPS : '+er.message),{enableHighAccuracy:true,timeout:20000})};
+$('#sf').onsubmit=async e=>{e.preventDefault();const q=$('#sq').value.trim();if(!q)return;
+ const m=q.match(/^(-?\d+(?:[.,]\d+)?)\s*[;,\s]\s*(-?\d+(?:[.,]\d+)?)$/);
+ if(m){const la=+m[1].replace(',','.'),lo=+m[2].replace(',','.');map.setView([la,lo],17);setPt(la,lo);return}
+ try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&countrycodes=fr&accept-language=fr&q='+encodeURIComponent(q));
+  const j=await r.json();if(!j.length)return toast('Aucun résultat');
+  $('#sr').innerHTML=j.map((x,i)=>`<button type="button" data-i="${i}">${esc(x.display_name)}</button>`).join('');$('#sr').hidden=false;
+  $('#sr').onclick=ev=>{const b=ev.target.closest('button');if(!b)return;const x=j[b.dataset.i],la=+x.lat,lo=+x.lon;
+   map.setView([la,lo],17);setPt(la,lo);$('#sr').hidden=true}}
+ catch(x){toast('Recherche impossible (hors connexion ?)')}};
 fetch('donnees.json').then(r=>r.json()).then(d=>{D=d;build();renderList()});
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
 navigator.storage?.persist?.();
