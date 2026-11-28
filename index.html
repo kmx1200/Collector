@@ -30,7 +30,7 @@ input[readonly]{background:var(--ro)}
 .ch span{display:block;padding:7px 12px;border:1px solid var(--l);border-radius:20px;background:var(--c)}
 .ch input:checked+span{background:var(--b);color:#fff;border-color:var(--b)}
 .ch input:focus-visible+span{outline:2px solid var(--o)}
-.m{color:var(--m);font-size:.85rem}.a{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.a button{padding:6px 10px}
+.m{color:var(--m);font-size:.85rem}.a{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;margin-top:8px}.a button,.a .btn{padding:9px 10px;text-align:center}.a>b{grid-column:1/-1}.a.loc{grid-template-columns:1fr;margin:0 0 8px}.a.loc button{padding:13px 14px}#localt{display:grid;gap:6px;margin:4px 0 8px}
 .bar{position:fixed;left:0;right:0;bottom:0;background:var(--c);border-top:1px solid var(--l);padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center}
 .bar button{flex:1;max-width:300px}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1d2733;color:#fff;padding:8px 16px;border-radius:20px;z-index:9;font-size:.9rem}
@@ -112,14 +112,15 @@ const dt=(k,l)=>`<label class="f">${l}<span class="w"><input name="${k}" type="d
 function build(){
  const sites=Object.keys(D.communes);
  F.innerHTML=
- H('Localisation',`<div class="r"><label class="f">Site<select name="site">${sites.map(s=>`<option value="${s}">${s.replace(/_/g,' ')}</option>`).join('')}</select></label>
+ H('Localisation',`<div class="a loc"><button type="button" id="gps" class="o">📍 Position GPS actuelle</button><button type="button" id="pick" class="s">🗺️ Choisir sur la carte</button></div>
+ <p class="m" id="locst">La position GPS ou pointée sur la carte renseigne automatiquement site, commune, lieu-dit, RD, PR et abscisse.</p><div id="localt"></div>
+ <div class="r"><label class="f">Site<select name="site"><option value="">—</option>${sites.map(s=>`<option value="${s}">${s.replace(/_/g,' ')}</option>`).join('')}</select></label>
  <label class="f">Commune<select name="commune"></select></label>${ti('lieudit','Lieu-dit')}
  <label class="f">R.D.<select name="rd"></select></label><label class="f">P.R.<select name="pr"></select></label><label class="f">Abscisse (m) – calculée<input name="abs" readonly></label>
  <label class="f">Cumul (m) – calculé<input name="cumul" readonly></label></div>
  <div hidden>${ni('lat','Latitude (WGS84)',1)}${ni('lon','Longitude (WGS84)',1)}<input name="gps_prec" readonly></div>
  <div class="r"><label class="f">Source de la position<input name="loc_source" readonly></label></div>
- <div class="a"><button type="button" id="gps" class="o">📍 Position GPS actuelle</button><button type="button" id="pick" class="s">🗺️ Choisir sur la carte</button></div>
- <p class="m" id="locst">Le point GPS ou pointé sur la carte renseigne automatiquement la commune, la RD, le PR et l'abscisse.</p><div class="c" id="localt"></div>`,1)+
+`,1)+
  H("Appel et intervention",`<div class="r">${ni('numero','N° fiche du jour')}${dt('hAppel',"Heure d'appel")}${dt('hAcc',"Heure de l'accident")}${dt('dDebut','Début intervention')}${dt('dFin','Fin intervention')}</div>
  ${ch('astreinte','Astreinte')}<p>Temps d'intervention : <b id="tps">—</b></p>`,1)+
  H("Origine de l'appel",`${ch('origine','Origine')}<div class="r">${ti('origine_prec','Autre – précisions')}${ti('interlocuteur','Nom & identification de l’interlocuteur')}${ti('tel','Téléphone','tel')}</div>`)+
@@ -140,9 +141,9 @@ function build(){
  <p>Heures totales personnel : <b id="ht">0</b></p><b>Matériaux</b><div class="r">${MX.map(k=>ni('mx|'+k,k)).join('')}</div>`);
 }
 // --- listes en cascade
-function popC(){const s=F.site.value;
- F.commune.innerHTML='<option value="">—</option>'+(D.communes[s]||[]).map(c=>`<option>${esc(c[1])}</option>`).join('');
- F.rd.innerHTML='<option value="">—</option>'+(D.rd[s]||[]).map(r=>`<option>${r}</option>`).join('');popPR()}
+function popC(){const s=F.site.value,cl=s?(D.communes[s]||[]):Object.values(D.communes).flat().sort((a,b)=>a[1].localeCompare(b[1],'fr')),rl=s?(D.rd[s]||[]):[...new Set(Object.values(D.rd).flat())].sort();   // sans site : toutes les communes et toutes les RD
+ F.commune.innerHTML='<option value="">—</option>'+cl.map(c=>`<option>${esc(c[1])}</option>`).join('');
+ F.rd.innerHTML='<option value="">—</option>'+rl.map(r=>`<option>${r}</option>`).join('');popPR()}
 function popPR(){F.pr.innerHTML='<option value="">—</option>'+(D.pr[F.rd.value]||[]).map(p=>`<option>${esc(p[0])}</option>`).join('')}
 // --- lecture / écriture
 function read(){const o={};for(const e of F.elements){if(!e.name)continue;
@@ -151,15 +152,14 @@ function der(f){const p=(D.pr[f.rd]||[]).find(x=>x[0]==f.pr);let ms=f.dDebut&&f.
  return{cumul:p?Math.round(p[1]+n(f.abs)):'',tps_h:isNaN(ms)?'':+(ms/36e5).toFixed(2),
  heures_totales:+PERS.reduce((s,k)=>s+(n(f[`p|${k}|we`])+n(f[`p|${k}|nuit`])+n(f[`p|${k}|norm`]))*n(f[`p|${k}|nb`]),0).toFixed(2)}}
 function calc(){F.querySelectorAll('input[data-for]').forEach(r=>r.value=F.elements[r.dataset.for].value);const d=der(read());F.cumul.value=d.cumul;$('#tps').textContent=d.tps_h===''?'—':hm(d.tps_h);$('#ht').textContent=d.heures_totales}
-function fill(f){F.reset();F.site.value=f.site;popC();ensOpt(F.rd,f.rd);F.rd.value=f.rd||'';popPR();ensOpt(F.pr,f.pr);ensOpt(F.commune,f.commune);
+function fill(f){F.reset();F.site.value=f.site||'';popC();ensOpt(F.rd,f.rd);F.rd.value=f.rd||'';popPR();ensOpt(F.pr,f.pr);ensOpt(F.commune,f.commune);
  for(const e of F.elements){if(!e.name||!(e.name in f))continue;
  if(e.type=='checkbox')e.checked=(f[e.name]||[]).includes(e.value);else if(e.type!='button')e.value=f[e.name]}}
 // --- navigation
 function show(v){$('#lv').hidden=v!='list';$('#fv').hidden=v!='form';$('#new').hidden=v!='list';$('#back').hidden=v!='form';if(v=='list')renderList()}
 function open_(f){orig=f.photos||[];added=[];cur={...f,photos:[...orig]};fill(f);autoRd=false;autoLd=false;LR=null;LRS=[];lseq++;$('#locst').textContent='';$('#localt').innerHTML='';calc();drawPh();show('form');scrollTo(0,0)}
-function neu(){const d=new Date(),site=localStorage.mc_site||'Vannes_St_Ave';
- const k=fiches.filter(x=>x.site==site&&new Date(x.cree).toDateString()==d.toDateString()).length+1;
- open_({id:crypto.randomUUID?crypto.randomUUID():Date.now()+'',cree:d.toISOString(),site,numero:k,dDebut:nowL(),date_fiche:nowL().slice(0,10)})}
+function neu(){const d=new Date();   // site, commune, RD… vides : renseignés par la position
+ open_({id:crypto.randomUUID?crypto.randomUUID():Date.now()+'',cree:d.toISOString(),site:'',numero:'',dDebut:nowL(),date_fiche:nowL().slice(0,10)})}
 const card=f=>`<div class="card"><b>Fiche n°${esc(f.numero||'?')} · ${fmt(f.dDebut||f.cree)}</b><br>${esc([f.commune,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')+(f.abs?' +'+f.abs:'')].filter(Boolean).join(' · '))}
  <div class="m">${esc([...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '))} ${f.lat?'📍':'· sans GPS'} ${(f.photos||[]).length?'· 📷'+f.photos.length:''}</div>
  <div class="a"><button class="s" data-a="e" data-i="${f.id}">Modifier</button>${f.lat&&f.lon?`<button class="o" data-a="g" data-i="${f.id}">🧭 Guidage</button>`:''}<button class="s" data-a="s" data-i="${f.id}">📤 Envoyer</button><button class="s" data-a="p" data-i="${f.id}">📄 PDF</button><button class="s" data-a="c" data-i="${f.id}">Dupliquer</button><button class="d" data-a="x" data-i="${f.id}">Supprimer</button></div></div>`;
@@ -309,7 +309,8 @@ $('#sp').onclick=()=>{const l=plist();if(!l.length)return toast('Aucune fiche');
 // --- événements
 $('#new').onclick=neu;$('#back').onclick=$('#cancel').onclick=()=>{added.forEach(delPh);added=[];show('list')};$('#q').oninput=renderList;
 $('#save').onclick=()=>{const o={...cur,...read()};Object.assign(o,der(o));o.maj=new Date().toISOString();
- const i=fiches.findIndex(x=>x.id==o.id);i<0?fiches.push(o):fiches[i]=o;localStorage.mc_site=o.site;orig.filter(id=>!(o.photos||[]).includes(id)).forEach(delPh);added=[];save();show('list');toast('Fiche enregistrée')};
+ if(!o.numero)o.numero=fiches.filter(x=>x.id!=o.id&&x.site==o.site&&new Date(x.cree).toDateString()==new Date(o.cree).toDateString()).length+1;   // n° du jour attribué à l'enregistrement
+ const i=fiches.findIndex(x=>x.id==o.id);i<0?fiches.push(o):fiches[i]=o;orig.filter(id=>!(o.photos||[]).includes(id)).forEach(delPh);added=[];save();show('list');toast('Fiche enregistrée')};
 $('#L').onclick=e=>{const b=e.target.closest('button');if(!b)return;const f=fiches.find(x=>x.id==b.dataset.i);if(!f)return;
  if(b.dataset.a=='g')return nav(f.lat,f.lon);
  if(b.dataset.a=='s')return txt(f);
@@ -317,7 +318,9 @@ $('#L').onclick=e=>{const b=e.target.closest('button');if(!b)return;const f=fich
  if(b.dataset.a=='e')open_(f);
  if(b.dataset.a=='c')open_({...f,id:Date.now()+'',cree:new Date().toISOString(),numero:'',maj:undefined,photos:[]});
  if(b.dataset.a=='x'&&confirm('Supprimer cette fiche ?')){(f.photos||[]).forEach(delPh);fiches=fiches.filter(x=>x!=f);save();renderList()}};
-F.addEventListener('change',e=>{if(e.target.name=='site')popC();if(e.target.name=='rd')popPR();if(['rd','pr','abs'].includes(e.target.name))autoRd=false;calc()});
+F.addEventListener('change',e=>{if(e.target.name=='site')popC();
+ if(e.target.name=='commune'&&!F.site.value&&F.commune.value){const c=F.commune.value,k=Object.keys(D.communes).find(k=>D.communes[k].some(x=>x[1]==c));if(k){F.site.value=k;popC();F.commune.value=c}}
+if(e.target.name=='rd')popPR();if(['rd','pr','abs'].includes(e.target.name))autoRd=false;calc()});
 F.addEventListener('input',e=>{const t=e.target;if(t.dataset.for)F.elements[t.dataset.for].value=t.value;if(t.name=='lieudit')autoLd=false;calc()});
 F.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
  if(b.id=='pick')return openMap('form');
