@@ -45,7 +45,7 @@ label.dt{grid-column:1/-1}.dt input[type=date]{flex:3}.dt input[type=time]{flex:
 .pin{font-size:30px;line-height:30px}
 .pg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.ph{position:relative}.ph img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--l);display:block}.ph button{position:absolute;top:2px;right:2px;padding:2px 7px}
 </style></head><body>
-<header><h1>Collector · ATD Questembert</h1><button id="inst" class="s" hidden>⬇ Installer</button><button id="new" class="o">＋ Nouvelle fiche</button><button id="back" class="s" hidden>← Liste</button><button id="th" class="s" type="button" aria-label="Basculer entre thème clair et sombre">🌙</button></header>
+<header><h1 id="ttl">Collector · ATD SE</h1><button id="inst" class="s" hidden>⬇ Installer</button><button id="new" class="o">＋ Nouvelle fiche</button><button id="back" class="s" hidden>← Liste</button><button id="th" class="s" type="button" aria-label="Basculer entre thème clair et sombre">🌙</button></header>
 <main>
 <section id="lv">
  <div class="card"><input id="q" type="search" placeholder="Rechercher (commune, RD, incident…)"><p class="m" id="cnt"></p><button id="mapb" class="s" type="button">🧭 Rechercher un lieu / guidage</button></div>
@@ -56,6 +56,7 @@ label.dt{grid-column:1/-1}.dt input[type=date]{flex:3}.dt input[type=time]{flex:
   <p class="m">GeoJSON : points GPS (WGS84, EPSG:4326). CSV : colonnes Route / Cumul_Debut pour le référencement linéaire (LRS), plus lat/lon.</p>
  </details>
  <div id="L"></div>
+ <p class="m" id="ver" style="text-align:center;margin:18px 0 0"></p>
 </section>
 <section id="fv" hidden><form id="F" autocomplete="off" onsubmit="return false"></form>
  <div class="bar"><button id="save">Enregistrer</button><button id="cancel" class="s">Annuler</button></div></section>
@@ -523,6 +524,9 @@ $('#sf').onsubmit=async e=>{e.preventDefault();const q=$('#sq').value.trim();if(
   showRes(j.map(x=>({label:x.display_name,lat:+x.lat,lon:+x.lon,zoom:17})))}
  catch(x){toast('Recherche impossible (hors connexion ?)')}};
 Promise.all([fetch('donnees.json').then(r=>r.json()),loadPh()]).then(([d])=>{D=d;build();renderList()});
-if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+// --- version déployée (à incrémenter ici ET dans sw.js à chaque mise en ligne)
+const VER='2.0',vr=$('#ver');vr.textContent='Collector v'+VER;$('#ttl').textContent='Collector · ATD SE · v'+VER;
+if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js');
+ navigator.serviceWorker.ready.then(r=>{const ch=new MessageChannel();ch.port1.onmessage=e=>{vr.textContent='Collector v'+VER+(e.data&&e.data!==VER?' · mise à jour v'+e.data+' en cours (rouvrez l’appli)':'')};if(r.active)r.active.postMessage('version',[ch.port2])})}
 navigator.storage?.persist?.();
 </script></body></html>
