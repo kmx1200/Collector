@@ -44,6 +44,14 @@ label.dt{grid-column:1/-1}.dt input[type=date]{flex:3}.dt input[type=time]{flex:
 .mb{padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--l)}
 .pin{font-size:30px;line-height:30px}
 .pg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.ph{position:relative}.ph img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--l);display:block}.ph button{position:absolute;top:2px;right:2px;padding:2px 7px}
+
+#pv{position:fixed;inset:0;z-index:30;background:#333;display:flex;flex-direction:column}
+#pv .pt{display:flex;gap:6px;padding:calc(8px + env(safe-area-inset-top)) 8px 8px;background:var(--b);align-items:center}#pv .pt b{flex:1;color:#fff;font-size:.9rem;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pvb{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:8px;text-align:center}
+.pp{position:relative;display:block;margin:0 auto 8px;max-width:100%;background:#fff;box-shadow:0 2px 8px #0006}.pp canvas{display:block;width:100%;height:auto}.pp a{position:absolute;display:block}
+#sh{position:fixed;inset:0;z-index:25;background:#0008;display:flex;align-items:flex-end;justify-content:center}
+#sh>div{background:var(--c);width:100%;max-width:520px;border-radius:14px 14px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));display:grid;gap:8px}
+#sh button{padding:14px}
 </style></head><body>
 <header><h1 id="ttl">Collector · ATD SE</h1><button id="inst" class="s" hidden>⬇ Installer</button><button id="new" class="o">＋ Nouvelle fiche</button><button id="back" class="s" hidden>← Liste</button><button id="th" class="s" type="button" aria-label="Basculer entre thème clair et sombre">🌙</button></header>
 <main>
@@ -68,6 +76,8 @@ label.dt{grid-column:1/-1}.dt input[type=date]{flex:3}.dt input[type=time]{flex:
  <div class="mb"><div class="m" id="mi">Touchez la carte pour placer un point</div>
   <div class="a"><button id="mu" class="o" disabled>✔ Utiliser ce point</button><button id="mg" disabled>🧭 Guidage</button><button id="mw" class="s" disabled>Waze</button><button id="mp" class="s">📍 Ma position</button></div></div>
 </div>
+<div id="pv" hidden><div class="pt"><button id="pvx" class="s" type="button">✕</button><b id="pvt"></b><button id="pvo" type="button">⬇ Ouvrir / enregistrer</button><button id="pvs" class="s" type="button" hidden>📤</button></div><div id="pvb"></div></div>
+<div id="sh" hidden><div><b id="sht">Envoyer la fiche</b><button id="she" type="button">✉️ E-mail (PDF en pièce jointe)</button><button id="shm" type="button" class="o">💬 SMS (lien de localisation)</button><button id="sha" type="button" class="s">📤 Autre application (WhatsApp…)</button><button id="shc" type="button" class="s">Annuler</button></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
@@ -161,7 +171,7 @@ function fill(f){F.reset();F.site.value=f.site||'';popC();ensOpt(F.rd,f.rd);F.rd
  if(e.type=='checkbox')e.checked=(f[e.name]||[]).includes(e.value);else if(e.type!='button')e.value=f[e.name]}}
 // --- navigation
 function show(v){$('#lv').hidden=v!='list';$('#fv').hidden=v!='form';$('#new').hidden=v!='list';$('#back').hidden=v!='form';if(v=='list')renderList()}
-function open_(f){orig=f.photos||[];added=[];cur={...f,photos:[...orig]};fill(f);syncDt();autoRd=false;autoLd=false;LR=null;LRS=[];lseq++;$('#locst').textContent='';$('#localt').innerHTML='';calc();drawPh();show('form');scrollTo(0,0)}
+function open_(f){orig=f.photos||[];added=[];cur={...f,photos:[...orig]};fill(f);syncDt();autoRd=false;autoLd=false;LR=null;LRS=[];lseq++;pendCom=false;$('#locst').textContent='';$('#localt').innerHTML='';calc();drawPh();show('form');scrollTo(0,0)}
 function neu(){const d=new Date();   // site, commune, RD… vides : renseignés par la position
  open_({id:crypto.randomUUID?crypto.randomUUID():Date.now()+'',cree:d.toISOString(),site:'',numero:'',dDebut:nowL(),date_fiche:nowL().slice(0,10)})}
 const card=f=>`<div class="card"><b>Fiche n°${esc(f.numero||'?')} · ${fmt(f.dDebut||f.cree)}</b><br>${esc([f.commune,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')+(f.abs?' +'+f.abs:'')].filter(Boolean).join(' · '))}
@@ -194,8 +204,9 @@ async function shr(nm,t,m){SH=0;
  toast('Partage de fichier non pris en charge : téléchargement');dl(nm,t,m)}
 $('#shr').hidden=!navigator.canShare;
 for(const[a,b]of[['sg','xg'],['sc','xc'],['sz','xz'],['sj','xj']])$('#'+a).onclick=()=>{SH=1;try{$('#'+b).click()}finally{SH=0}};
-function txt(f){const t=[`Fiche n°${f.numero||'?'} – ${fmt(f.dDebut||f.cree)}`,[f.commune,f.lieudit,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')].filter(Boolean).join(' · '),
- [...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '),f.lat&&f.lon?`https://www.google.com/maps?q=${f.lat},${f.lon}`:''].filter(Boolean).join('\n');
+const msgTxt=f=>[`Fiche n°${f.numero||'?'} – ${fmt(f.dDebut||f.cree)}`,[f.commune,f.lieudit,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')].filter(Boolean).join(' · '),
+ [...(f.incident||[]),...(f.typeacc||[]),...(f.circulation||[])].join(', '),hasPos(f)?mapsUrl(f.lat,f.lon):''].filter(Boolean).join('\n');
+function txt(f){const t=msgTxt(f);
  if(navigator.share)navigator.share({title:'Collector',text:t}).catch(()=>{});
  else navigator.clipboard?.writeText(t).then(()=>toast('Texte copié'))}
 // --- photos (IndexedDB + cache mémoire)
@@ -257,6 +268,8 @@ const PS=[['Localisation',[['Site','site'],['Commune','commune'],['Lieu-dit','li
 ["Détail de l'évènement",[['Sens de circulation','sens'],["Type d'accident",'typeacc'],['Lumière','lumiere'],['Environnement','env'],['Type de croisement','croisement'],['Facteurs','facteurs'],['Précisions','fact_prec']]],
 ['Observations',[['Infrastructure à vérifier','infra'],['Observations','obs'],['Agent 1','agent1'],['Agent 2','agent2'],['Date','date_fiche']]],
 ['Tiers (état de frais)',[['Nom','t_nom'],['Prénom','t_prenom'],['Adresse','t_adresse'],['Code postal / Ville','t_cp_ville'],['Téléphone','t_tel'],['Véhicule – marque','v_marque'],['Véhicule – type','v_type'],['Immatriculation','v_immat'],['Compagnie d’assurance','a_compagnie'],['Agence','a_agence'],['N° police','a_police']]]];
+const hasPos=f=>f.lat!==''&&f.lon!==''&&isFinite(parseFloat(f.lat))&&isFinite(parseFloat(f.lon));
+const mapsUrl=(la,lo)=>`https://www.google.com/maps?q=${la},${lo}`,svUrl=(la,lo)=>`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${la},${lo}`;
 const sx=v=>String(v??'').replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/[–—]/g,'-').replace(/…/g,'...').replace(/œ/g,'oe').replace(/Œ/g,'OE').replace(/[\u00a0\u202f]/g,' ').replace(/[^\n\x20-\xff]/g,'');
 // carte de localisation : assemblage de tuiles OpenStreetMap
 let mapMiss=false;const TC=new Map();
@@ -284,7 +297,11 @@ async function makePdf(list){const{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',
    if(['hAppel','hAcc','dDebut','dFin'].includes(k))return fmt(v);if(k=='site')return String(v).replace(/_/g,' ');
    if(k=='date_fiche')return new Date(v).toLocaleDateString('fr-FR');if(k=='tps_h')return hm(+v);return String(v)};
   for(const[t,fl]of PS){const rows=fl.map(([l,k])=>[l,val(k)]).filter(r=>r[1]!=='');if(!rows.length)continue;head(t);rows.forEach(r=>row(...r));
-   if(t=='Localisation'&&maps[i]){const h=(W-2*M)*341/768;need(h+7);doc.addImage(maps[i],'JPEG',M,y,W-2*M,h);y+=h+3;doc.setFontSize(7.5);doc.setTextColor(107,119,133);
+   if(t=='Localisation'&&hasPos(f)){const sv=svUrl(f.lat,f.lon),gm=mapsUrl(f.lat,f.lon);
+    const lk=(l,tx,u)=>{need(6);doc.setFontSize(9.5);doc.setFont('helvetica','bold');doc.setTextColor(30,39,51);doc.text(sx(l),M,y);doc.setFont('helvetica','normal');doc.setTextColor(11,83,148);
+     doc.textWithLink(sx(tx),M+LW,y,{url:u});doc.setDrawColor(11,83,148);doc.line(M+LW,y+.8,M+LW+doc.getTextWidth(sx(tx)),y+.8);doc.setTextColor(30,39,51);y+=5.8};
+    lk('Street View','Ouvrir dans Google Street View',sv);lk('Google Maps','Ouvrir la position dans Google Maps',gm)}
+   if(t=='Localisation'&&maps[i]){const h=(W-2*M)*341/768;need(h+7);doc.addImage(maps[i],'JPEG',M,y,W-2*M,h);doc.link(M,y,W-2*M,h,{url:mapsUrl(f.lat,f.lon)});y+=h+3;doc.setFontSize(7.5);doc.setTextColor(107,119,133);
     doc.text('Position de l\'intervention - fond de carte © OpenStreetMap contributors',M,y);y+=5;doc.setTextColor(30,39,51)}}
   const it=[];VEH.forEach(k=>n(f['veh|'+k])&&it.push(['Véhicule – '+k,f['veh|'+k]+' h']));
   MU.forEach(k=>n(f['mu|'+k])&&it.push(['Matériel – '+k,f['mu|'+k]]));MM.forEach(k=>n(f['mm|'+k])&&it.push(['Matériel – '+k,f['mm|'+k]+' ml']));
@@ -300,12 +317,53 @@ async function makePdf(list){const{jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',
  return doc.output('blob')}
 const pname=l=>l.length==1?`collector_fiche_${l[0].numero||'x'}_${(l[0].dDebut||l[0].cree).slice(0,10)}.pdf`:`collector_fiches_${stamp()}.pdf`;
 const pc={};
-async function pdf(l,share){if(!window.jspdf)return toast('PDF indisponible : connexion requise la 1re fois');
+async function pdfBlob(l){if(!window.jspdf)throw new Error('PDF indisponible : connexion requise la 1re fois');
  const key=l.map(f=>f.id+(f.maj||'')).join();
- if(pc.key!=key||!pc.blob){toast('Préparation du PDF…');
-  try{pc.blob=await makePdf(l);pc.key=mapMiss?'':key}catch(e){return toast('Erreur PDF : '+e.message)}
-  if(mapMiss)toast('Fond de carte incomplet (connexion ?)')}
- if(share)SH=1;try{dl(pname(l),pc.blob,'application/pdf')}finally{SH=0}}
+ if(pc.key!=key||!pc.blob){
+  if(pc.busy&&pc.bk===key)return pc.busy;
+  pc.bk=key;pc.busy=(async()=>{try{const b=await makePdf(l);pc.blob=b;pc.key=mapMiss?'':key;if(mapMiss)toast('Fond de carte incomplet (connexion ?)');return b}finally{pc.busy=null}})();return pc.busy}
+ return pc.blob}
+async function pdf(l,share){toast('Préparation du PDF…');let blob;try{blob=await pdfBlob(l)}catch(e){return toast(e.message.startsWith('PDF')?e.message:'Erreur PDF : '+e.message)}
+ if(share)SH=1;try{dl(pname(l),blob,'application/pdf')}finally{SH=0}}
+// --- aperçu PDF intégré (PDF.js, mis en cache pour le hors ligne) : le PDF s'affiche tout de suite, liens cliquables
+const PJ='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',PW='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';let PJP;
+const loadPj=()=>PJP||(PJP=(async()=>{if(!window.pdfjsLib)await new Promise((ok,ko)=>{const s=document.createElement('script');s.src=PJ;s.onload=ok;s.onerror=()=>ko(new Error('PDF.js indisponible'));document.head.append(s)});
+ const w=await fetch(PW).then(r=>r.text());pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([w],{type:'text/javascript'}));return pdfjsLib})().catch(e=>{PJP=null;throw e}));
+let pvBlob=null,pvName='',pvUrl='';
+function pvClose(){$('#pv').hidden=true;$('#pvb').innerHTML='';if(pvUrl){URL.revokeObjectURL(pvUrl);pvUrl=''}pvBlob=null}
+function pvSave(){if(!pvBlob)return;if(pvUrl)URL.revokeObjectURL(pvUrl);pvUrl=URL.createObjectURL(pvBlob);
+ if(ios){const w=window.open(pvUrl,'_blank');if(w)return}   // iOS : lecteur PDF du système
+ const a=document.createElement('a');a.href=pvUrl;a.download=pvName;a.click();toast('PDF enregistré : ouvrez-le depuis la notification / Téléchargements')}
+async function pvRender(blob){const box=$('#pvb');box.innerHTML='<p class="m" style="color:#fff">Chargement…</p>';
+ const lib=await loadPj(),doc=await lib.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise;box.innerHTML='';
+ const cw=Math.min(box.clientWidth-16,900),dpr=Math.min(2,window.devicePixelRatio||1);
+ for(let i=1;i<=doc.numPages;i++){const pg=await doc.getPage(i),v0=pg.getViewport({scale:1}),sc=cw/v0.width,v=pg.getViewport({scale:sc}),vr=pg.getViewport({scale:sc*dpr}),
+  d=document.createElement('div'),c=document.createElement('canvas');d.className='pp';d.style.width=cw+'px';c.width=Math.floor(vr.width);c.height=Math.floor(vr.height);d.append(c);box.append(d);
+  await pg.render({canvasContext:c.getContext('2d'),viewport:vr}).promise;
+  (await pg.getAnnotations()).forEach(a=>{if(a.subtype!='Link'||!a.url)return;const r=v.convertToViewportRectangle(a.rect),l=document.createElement('a');
+   l.href=a.url;l.target='_blank';l.rel='noopener';l.style.cssText=`left:${Math.min(r[0],r[2])}px;top:${Math.min(r[1],r[3])}px;width:${Math.abs(r[2]-r[0])}px;height:${Math.abs(r[3]-r[1])}px`;d.append(l)})}}
+async function preview(f){toast('Préparation du PDF…');let blob;try{blob=await pdfBlob([f])}catch(e){return toast(e.message.startsWith('PDF')?e.message:'Erreur PDF : '+e.message)}
+ pvBlob=blob;pvName=pname([f]);$('#pvt').textContent='Fiche n°'+(f.numero||'?');$('#pvs').hidden=!navigator.canShare;$('#pv').hidden=false;
+ try{await pvRender(blob)}catch(e){$('#pv').hidden=true;pvSave()}}   // aperçu impossible (1re fois hors ligne) : ouverture / téléchargement direct
+$('#pvx').onclick=pvClose;$('#pvo').onclick=pvSave;
+$('#pvs').onclick=async()=>{if(!pvBlob)return;try{await navigator.share({files:[new File([pvBlob],pvName,{type:'application/pdf'})],title:pvName})}catch(e){if(e.name!='AbortError')toast('Partage impossible : '+(e.name||''))}};
+// --- bouton Envoyer : e-mail (PDF joint) ou SMS (lien de localisation)
+let shF=null;const shClose=()=>{$('#sh').hidden=true;shF=null};
+function chooseSend(f){shF=f;$('#sht').textContent='Envoyer la fiche n°'+(f.numero||'?');$('#she').textContent='✉️ E-mail (PDF en pièce jointe)';$('#sh').hidden=false;
+ pdfBlob([f]).catch(()=>{})}   // le PDF se prépare pendant que l'utilisateur choisit : l'envoi reste dans le geste tactile
+$('#shc').onclick=shClose;$('#sh').onclick=e=>{if(e.target.id=='sh')shClose()};
+$('#sha').onclick=()=>{const f=shF;shClose();if(f)txt(f)};
+$('#she').onclick=async()=>{const f=shF;if(!f)return;const t=msgTxt(f),ttl='Collector – Fiche n°'+(f.numero||'?'),nm=pname([f]);let blob;
+ try{blob=await pdfBlob([f])}catch(e){return toast(e.message.startsWith('PDF')?e.message:'Erreur PDF : '+e.message)}
+ const file=new File([blob],nm,{type:'application/pdf'});
+ if(navigator.canShare?.({files:[file]})){
+  try{await navigator.share({files:[file],title:ttl,text:t});shClose()}
+  catch(x){if(x.name=='AbortError')return;if(x.name=='NotAllowedError'){$('#she').textContent='✉️ PDF prêt : toucher pour envoyer';return toast('Touchez de nouveau pour ouvrir la messagerie')}toast('Partage impossible : '+(x.name||''))}return}
+ // ordinateur / navigateur sans partage de fichier : le PDF est téléchargé, la messagerie s'ouvre avec le texte (pièce jointe à ajouter à la main)
+ dl(nm,blob,'application/pdf');setTimeout(()=>{location.href='mailto:?subject='+encodeURIComponent(ttl)+'&body='+encodeURIComponent(t)},400);toast('PDF téléchargé : joignez-le au message');shClose()};
+$('#shm').onclick=()=>{const f=shF;if(!f)return;const t=msgTxt(f);if(!hasPos(f))toast('Fiche sans position GPS : le SMS n’aura pas de lien');
+ if(/android|iphone|ipad|ipod/i.test(navigator.userAgent)||ios){shClose();location.href=(ios?'sms:&body=':'sms:?body=')+encodeURIComponent(t)}
+ else{navigator.clipboard?.writeText(t).then(()=>toast('Texte copié : collez-le dans votre application SMS'),()=>toast('SMS indisponible sur cet appareil'));shClose()}};
 const plist=()=>sel().sort((a,b)=>(a.dDebut||a.cree).localeCompare(b.dDebut||b.cree));
 $('#xp').onclick=()=>{const l=plist();if(!l.length)return toast('Aucune fiche');pdf(l)};
 $('#sp').onclick=()=>{const l=plist();if(!l.length)return toast('Aucune fiche');pdf(l,true)};
@@ -317,8 +375,8 @@ $('#save').onclick=()=>{const o={...cur,...read()};Object.assign(o,der(o));o.maj
  const i=fiches.findIndex(x=>x.id==o.id);i<0?fiches.push(o):fiches[i]=o;orig.filter(id=>!(o.photos||[]).includes(id)).forEach(delPh);added=[];save();show('list');toast('Fiche enregistrée')};
 $('#L').onclick=e=>{const b=e.target.closest('button');if(!b)return;const f=fiches.find(x=>x.id==b.dataset.i);if(!f)return;
  if(b.dataset.a=='g')return nav(f.lat,f.lon);
- if(b.dataset.a=='s')return txt(f);
- if(b.dataset.a=='p')return pdf([f],!!navigator.canShare);
+ if(b.dataset.a=='s')return chooseSend(f);
+ if(b.dataset.a=='p')return preview(f);
  if(b.dataset.a=='e')open_(f);
  if(b.dataset.a=='c')open_({...f,id:Date.now()+'',cree:new Date().toISOString(),numero:'',maj:undefined,photos:[]});
  if(b.dataset.a=='x'&&confirm('Supprimer cette fiche ?')){(f.photos||[]).forEach(delPh);fiches=fiches.filter(x=>x!=f);save();renderList()}};
@@ -411,29 +469,46 @@ function findRd(la,lo,tol){return ref().then(idx=>{
    r.pr=String(rf.q[3]);r.m=Math.round(dir>0?sc-rf.s:rf.s-sc);if(before.length&&r.m<0)r.m=0}
   out.push(r)});
  return out})}
-// commune : géocodage inverse BAN (Géoplateforme, puis ancienne adresse de l'API Adresse en secours)
-const BC=new Map();
+// commune : service officiel geo.api.gouv.fr (polygone de la commune qui contient le point : ne dépend pas d'une adresse proche)
+// + BAN pour le lieu-dit ; repli hors ligne sur la mémoire locale (points déjà résolus + fiches enregistrées)
+const BC=new Map(),CMK='mc_com';let CMEM;try{CMEM=JSON.parse(localStorage[CMK]||'[]')}catch(e){CMEM=[]}
+const mdist=(la,lo,p)=>Math.hypot((p[1]-lo)*111320*Math.cos(la*Math.PI/180),(p[0]-la)*110574);
+const cmSave=(la,lo,insee,city)=>{const i=CMEM.findIndex(p=>mdist(la,lo,p)<30);if(i>=0)CMEM.splice(i,1);CMEM.push([+la.toFixed(5),+lo.toFixed(5),String(insee),city||'']);if(CMEM.length>400)CMEM.shift();try{localStorage[CMK]=JSON.stringify(CMEM)}catch(x){}};
+const inseeOf=nm=>{for(const l of Object.values(D.communes)){const c=l.find(x=>x[1]==nm);if(c)return c[0]}return''};
+function localCom(la,lo){const pts=[...CMEM];
+ fiches.forEach(f=>{if(f.commune&&hasPos(f)){const i=inseeOf(f.commune);if(i)pts.push([+f.lat,+f.lon,i,f.commune])}});
+ const near=pts.map(p=>({p,d:mdist(la,lo,p)})).filter(o=>o.d<=1500).sort((a,b)=>a.d-b.d);if(!near.length)return null;
+ const m=near[0];if(m.d>300&&near.some(o=>o.p[2]!==m.p[2]))return null;   // proche d'une limite de commune : on ne devine pas
+ return{insee:m.p[2],city:m.p[3],dist:undefined,ld:'',offline:true,approx:m.d>30}}
+async function fetchJ(u,ms){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),ms||6000);try{const r=await fetch(u,{signal:ac.signal});return r.ok?await r.json():null}catch(e){return null}finally{clearTimeout(tm)}}
 function ban(la,lo){const k=la.toFixed(5)+','+lo.toFixed(5);if(BC.has(k))return BC.get(k);
- const p=(async()=>{for(const u of['https://data.geopf.fr/geocodage/reverse','https://api-adresse.data.gouv.fr/reverse/']){
-  const get=async t=>{const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),7000);
-   try{const r=await fetch(`${u}?lon=${lo}&lat=${la}&limit=1${t}`,{signal:ac.signal});return r.ok?(await r.json()).features?.[0]?.properties:null}catch(e){return null}finally{clearTimeout(tm)}};
-  const[q,w]=await Promise.all([get(''),get('&type=locality')]);   // adresse la plus proche (commune) + lieu-dit le plus proche
-  if(q&&q.citycode)return{insee:String(q.citycode),city:q.city,dist:q.distance,ld:w&&w.type=='locality'&&w.citycode==q.citycode&&w.name&&(w.distance==null||w.distance<=300)?w.name:''}}
-  return null})();
- BC.set(k,p);p.then(v=>{if(!v)BC.delete(k)});return p}
+ const p=(async()=>{
+  const gv=fetchJ(`https://geo.api.gouv.fr/communes?lat=${la}&lon=${lo}&fields=nom,code&format=json`).then(j=>Array.isArray(j)&&j[0]&&j[0].code?j[0]:null);
+  const ad=(async()=>{for(const u of['https://data.geopf.fr/geocodage/reverse','https://api-adresse.data.gouv.fr/reverse/']){
+   const get=async t=>{const j=await fetchJ(`${u}?lon=${lo}&lat=${la}&limit=1${t}`,7000);return j&&j.features&&j.features[0]?j.features[0].properties:null};
+   const[q,w]=await Promise.all([get(''),get('&type=locality')]);   // adresse la plus proche + lieu-dit le plus proche
+   if((q&&q.citycode)||(w&&w.citycode))return{q,w}}   // un lieu-dit seul suffit : en rase campagne il n'y a parfois aucune adresse à proximité
+   return null})();
+  const[g,a]=await Promise.all([gv,ad]),q=a&&a.q,w=a&&a.w,insee=String(g?g.code:(q&&q.citycode)||(w&&w.citycode)||'');
+  if(insee){const city=g?g.nom:(q&&q.citycode?q.city:w.city),
+   ld=w&&w.type=='locality'&&String(w.citycode)==insee&&w.name&&(w.distance==null||w.distance<=300)?w.name:'';
+   cmSave(la,lo,insee,city);
+   return{insee,city,dist:g?undefined:q&&q.citycode?q.distance:undefined,ld}}
+  return localCom(la,lo)})();   // aucun service joignable : mémoire locale
+ BC.set(k,p);p.then(v=>{if(!v||v.offline)BC.delete(k)});return p}
 let COMM;const comm=i=>{if(!COMM){COMM={};for(const[s,l]of Object.entries(D.communes))l.forEach(c=>COMM[c[0]]={site:s,name:c[1]})}return COMM[i]};
 const LOC=async(la,lo,tol)=>{const[rs,b]=await Promise.all([findRd(la,lo,tol).then(r=>{RFERR='';return r}).catch(e=>{RFERR=e.message||String(e);return null}),ban(la,lo)]);return{rs,b,tol}};
 const prTxt=r=>r.pr==null?'PR indisponible':r.m>=0?`PR ${r.pr}+${r.m}`:`≈ ${-r.m} m avant le PR ${r.pr}`;
-const locTxt=x=>[x.rs&&x.rs[0]?`${shortRd(x.rs[0].axe)} · ${prTxt(x.rs[0])}${x.rs[0].approx?' (estimé)':''}`:x.rs?`aucune RD à moins de ${Math.round(x.tol)} m`:'référentiel RD indisponible ('+RFERR+')',
- x.b?(comm(x.b.insee)?.name||x.b.city):'commune non déterminée (hors ligne ?)'].join(' · ');
+const locTxt=(x,keep)=>[x.rs&&x.rs[0]?`${shortRd(x.rs[0].axe)} · ${prTxt(x.rs[0])}${x.rs[0].approx?' (estimé)':''}`:x.rs?`aucune RD à moins de ${Math.round(x.tol)} m`:'référentiel RD indisponible ('+RFERR+')',
+ x.b?(comm(x.b.insee)?.name||x.b.city)+(x.b.offline?x.b.approx?' (estimée, hors ligne)':' (mémorisée, hors ligne)':''):keep&&F.commune.value?F.commune.value+' (conservée : à vérifier, service de commune injoignable)':'commune non déterminée (hors ligne, position inconnue)'].join(' · ');
 const ensOpt=(s,v)=>{if(v&&![...s.options].some(o=>o.value==v))s.add(new Option(v))};
-let autoRd=false,autoLd=false,LR=null,LRS=[],lseq=0;
+let autoRd=false,autoLd=false,LR=null,LRS=[],lseq=0,pendCom=false;
 function setRd(r){ensOpt(F.rd,r.axe);F.rd.value=r.axe;popPR();
  if(r.pr==null){F.abs.value=''}else{ensOpt(F.pr,r.pr);F.pr.value=r.pr;F.abs.value=r.m}calc()}
 function setSite(k){if(!k||F.site.value==k)return;const c=F.commune.value;F.site.value=k;popC();if(c){ensOpt(F.commune,c);F.commune.value=c}}
 function setCom(b){const n=comm(b.insee)?.name||b.city;ensOpt(F.commune,n);F.commune.value=n}
 function locStatus(x){const alt=(x.rs||[]).slice(1),r=x.rs&&x.rs[0];
- $('#locst').textContent=(r?'✔ ':'⚠ ')+locTxt(x)+(r&&r.site?' · site '+siteTxt(r.site):'')+(x.b&&x.b.ld?' · '+x.b.ld:'')+(x.b&&x.b.dist>400?` (adresse BAN la plus proche à ${Math.round(x.b.dist)} m : vérifiez la commune)`:'');
+ $('#locst').textContent=(r?'✔ ':'⚠ ')+locTxt(x,1)+(r&&r.site?' · site '+siteTxt(r.site):'')+(x.b&&x.b.ld?' · '+x.b.ld:'')+(x.b&&x.b.dist>400?` (adresse BAN la plus proche à ${Math.round(x.b.dist)} m : vérifiez la commune)`:'');
  $('#localt').innerHTML=alt.length?'<span class="m">Autre(s) route(s) proche(s) :</span>'+alt.map((r,i)=>`<button type="button" class="s" data-alt="${i+1}">${esc(shortRd(r.axe))} · ${esc(prTxt(r))}</button>`).join(''):''}
 function applyLoc(x){LRS=x.rs||[];LR=LRS[0]||null;
  setSite(LR&&LR.site||(x.b&&comm(x.b.insee)?.site));   // le site vient d'abord du segment de RD, à défaut de la commune
@@ -441,9 +516,14 @@ function applyLoc(x){LRS=x.rs||[];LR=LRS[0]||null;
   if(x.b.ld&&(!F.lieudit.value||autoLd)){F.lieudit.value=x.b.ld;autoLd=true}else if(!x.b.ld&&autoLd){F.lieudit.value='';autoLd=false}}
  if(LR){setRd(LR);autoRd=true}else if(x.rs&&autoRd){F.rd.value='';popPR();F.abs.value='';calc();autoRd=false}
  locStatus(x);
- if(!x.rs||!LR||!x.b)toast(!x.b?'Commune non déterminée (connexion ?)':!x.rs?'Référentiel RD indisponible : '+RFERR:'Aucune RD à proximité : renseignez la RD')}
+ pendCom=!x.b||!!x.b.offline;
+ if(!x.rs||!LR||!x.b)toast(!x.b?(F.commune.value?'Commune conservée : à vérifier (hors ligne)':'Commune non déterminée (hors ligne)'):!x.rs?'Référentiel RD indisponible : '+RFERR:'Aucune RD à proximité : renseignez la RD')}
 async function autoLoc(la,lo,tol){const s=++lseq;$('#locst').textContent='⏳ Détermination de la RD, du PR et de la commune…';$('#localt').innerHTML='';
  const x=await LOC(la,lo,tol);if(s===lseq)applyLoc(x)}
+async function retryCom(){const la=parseFloat(F.lat.value),lo=parseFloat(F.lon.value);if(isNaN(la)||isNaN(lo))return;
+ const b=await ban(la,lo);if(!b||b.offline)return;if(!F.site.value)setSite(comm(b.insee)?.site);setCom(b);
+ if(b.ld&&(!F.lieudit.value||autoLd)){F.lieudit.value=b.ld;autoLd=true}pendCom=false;toast('Commune vérifiée : '+F.commune.value)}
+addEventListener('online',()=>{if(pendCom&&!$('#fv').hidden)retryCom()});
 function pickAlt(i){const r=LRS[i];if(!r)return;LR=r;setSite(r.site);setRd(r);autoRd=true;
  $('#locst').textContent='✔ '+shortRd(r.axe)+' · '+prTxt(r)+(r.approx?' (estimé)':'')+(r.site?' · site '+siteTxt(r.site):'');$('#localt').innerHTML=''}
 
@@ -525,7 +605,7 @@ $('#sf').onsubmit=async e=>{e.preventDefault();const q=$('#sq').value.trim();if(
  catch(x){toast('Recherche impossible (hors connexion ?)')}};
 Promise.all([fetch('donnees.json').then(r=>r.json()),loadPh()]).then(([d])=>{D=d;build();renderList()});
 // --- version déployée (à incrémenter ici ET dans sw.js à chaque mise en ligne)
-const VER='2.0',vr=$('#ver');vr.textContent='Collector v'+VER;$('#ttl').textContent='Collector · ATD SE · v'+VER;
+const VER='2.1',vr=$('#ver');vr.textContent='Collector v'+VER;$('#ttl').textContent='Collector · ATD SE · v'+VER;
 if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js');
  navigator.serviceWorker.ready.then(r=>{const ch=new MessageChannel();ch.port1.onmessage=e=>{vr.textContent='Collector v'+VER+(e.data&&e.data!==VER?' · mise à jour v'+e.data+' en cours (rouvrez l’appli)':'')};if(r.active)r.active.postMessage('version',[ch.port2])})}
 navigator.storage?.persist?.();
