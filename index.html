@@ -115,7 +115,7 @@ const syncDt=()=>F.querySelectorAll('input[type=hidden][name]').forEach(h=>{cons
 function build(){
  const sites=Object.keys(D.communes);
  F.innerHTML=
- H('Localisation',`<div class="a loc"><button type="button" id="gps" class="o">📍 Position GPS actuelle</button><button type="button" id="pick" class="s">🗺️ Choisir sur la carte</button></div>
+ H('Localisation',`<div class="a loc"><button type="button" id="gps" class="o">📍 Position GPS actuelle</button><button type="button" id="pick">🗺️ Choisir sur la carte</button></div>
  <p class="m" id="locst">La position GPS ou pointée sur la carte renseigne automatiquement site, commune, lieu-dit, RD, PR et abscisse.</p><div id="localt"></div>
  <div class="r"><label class="f">Site<select name="site"><option value="">—</option>${sites.map(s=>`<option value="${s}">${s.replace(/_/g,' ')}</option>`).join('')}</select></label>
  <label class="f">Commune<select name="commune"></select></label>${ti('lieudit','Lieu-dit')}
