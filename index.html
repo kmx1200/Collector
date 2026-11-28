@@ -106,7 +106,7 @@ const H=(t,b,o)=>`<details class="card" ${o?'open':''}><summary>${t}</summary>${
 const ch=(k,l)=>`<div class="g"><b>${l}</b><div class="c">${CH[k].map(o=>`<label class="ch"><input type="checkbox" name="${k}" value="${esc(o)}"><span>${esc(o)}</span></label>`).join('')}</div></div>`;
 const ti=(k,l,t='text')=>`<label class="f">${l}<input name="${k}" type="${t}"></label>`;
 const stp=k=>k.startsWith('veh|')||/\|(we|nuit|norm)$/.test(k)?.5:k.startsWith('mm|')?5:k=='abs'?10:1;
-const ni=(k,l,no)=>`<label class="f">${l}<span class="w stp"><input name="${k}" type="number" inputmode="decimal" step="any">${no?'':`<button type="button" class="s" data-f="${k}" data-d="-1" aria-label="Diminuer">−</button><button type="button" class="s" data-f="${k}" data-d="1" aria-label="Augmenter">+</button>`}</span>${k=='abs'?'<input type="range" data-for="abs" min="0" max="2000" step="5" aria-label="Abscisse (curseur)">':''}</label>`;
+const ni=(k,l,no)=>`<label class="f">${l}<span class="w stp"><input name="${k}" type="number" inputmode="decimal" step="any">${no?'':`<button type="button" class="s" data-f="${k}" data-d="-1" aria-label="Diminuer">−</button><button type="button" class="s" data-f="${k}" data-d="1" aria-label="Augmenter">+</button>`}</span></label>`;
 const ta=(k,l)=>`<label class="f">${l}<textarea name="${k}" rows="3"></textarea></label>`;
 const dt=(k,l)=>`<label class="f">${l}<span class="w"><input name="${k}" type="datetime-local"><button type="button" class="s now" data-n="${k}">Maint.</button></span></label>`;
 function build(){
@@ -114,10 +114,11 @@ function build(){
  F.innerHTML=
  H('Localisation',`<div class="r"><label class="f">Site<select name="site">${sites.map(s=>`<option value="${s}">${s.replace(/_/g,' ')}</option>`).join('')}</select></label>
  <label class="f">Commune<select name="commune"></select></label>${ti('lieudit','Lieu-dit')}
- <label class="f">R.D.<select name="rd"></select></label><label class="f">P.R.<select name="pr"></select></label>${ni('abs','Abscisse (m)')}
+ <label class="f">R.D.<select name="rd"></select></label><label class="f">P.R.<select name="pr"></select></label><label class="f">Abscisse (m) – calculée<input name="abs" readonly></label>
  <label class="f">Cumul (m) – calculé<input name="cumul" readonly></label></div>
- <div class="r">${ni('lat','Latitude (WGS84)',1)}${ni('lon','Longitude (WGS84)',1)}<label class="f">Précision GPS (m)<input name="gps_prec" readonly></label><label class="f">Source de la position<input name="loc_source" readonly></label></div>
- <div class="a"><button type="button" id="gps" class="o">📍 Position GPS actuelle</button><button type="button" id="pick" class="s">🗺️ Choisir sur la carte</button><button type="button" id="locb" class="s">🛣️ Déterminer RD / PR / commune</button></div>
+ <div hidden>${ni('lat','Latitude (WGS84)',1)}${ni('lon','Longitude (WGS84)',1)}<input name="gps_prec" readonly></div>
+ <div class="r"><label class="f">Source de la position<input name="loc_source" readonly></label></div>
+ <div class="a"><button type="button" id="gps" class="o">📍 Position GPS actuelle</button><button type="button" id="pick" class="s">🗺️ Choisir sur la carte</button></div>
  <p class="m" id="locst">Le point GPS ou pointé sur la carte renseigne automatiquement la commune, la RD, le PR et l'abscisse.</p><div class="c" id="localt"></div>`,1)+
  H("Appel et intervention",`<div class="r">${ni('numero','N° fiche du jour')}${dt('hAppel',"Heure d'appel")}${dt('hAcc',"Heure de l'accident")}${dt('dDebut','Début intervention')}${dt('dFin','Fin intervention')}</div>
  ${ch('astreinte','Astreinte')}<p>Temps d'intervention : <b id="tps">—</b></p>`,1)+
@@ -367,8 +368,9 @@ function buildChains(e,o){const lines=[];
  while(ch){ch=false;out:for(let i=0;i<lines.length;i++)for(let j=i+1;j<lines.length;j++){const r=joinLines(lines[i],lines[j]);if(r){lines[i]=r;lines.splice(j,1);ch=true;break out}}}
  return lines}
 // référentiel (pr.json + lineaire.json), limité aux RD de Collector ; chargé à la demande puis mis en cache par le service worker
-let RFP;
-const ref=()=>RFP||(RFP=Promise.all([fetch('pr.json').then(r=>r.json()),fetch('lineaire.json').then(r=>r.json())]).then(([p,l])=>{
+let RFP,RFERR='';
+const getJ=async f=>{let err;for(const p of['','donnees/']){try{const r=await fetch(p+f);if(!r.ok){err=err||new Error(f+' introuvable (HTTP '+r.status+')');continue}return await r.json()}catch(x){err=err||new Error(f+' : '+(x.message||'chargement impossible'))}}throw err};
+const ref=()=>RFP||(RFP=Promise.all([getJ('pr.json'),getJ('lineaire.json')]).then(([p,l])=>{
  const ok=new Set(Object.values(D.rd).flat()),ax={},
  get=a=>ok.has(a)?(ax[a]||(ax[a]={axe:a,prs:[],feats:[],b:{s:90,n:-90,w:180,e:-180}})):null,
  ext=(b,a)=>{if(typeof a[0]=='number'){b.s=Math.min(b.s,a[1]);b.n=Math.max(b.n,a[1]);b.w=Math.min(b.w,a[0]);b.e=Math.max(b.e,a[0])}else a.forEach(x=>ext(b,x))};
@@ -413,9 +415,9 @@ function ban(la,lo){const k=la.toFixed(5)+','+lo.toFixed(5);if(BC.has(k))return 
   return null})();
  BC.set(k,p);p.then(v=>{if(!v)BC.delete(k)});return p}
 let COMM;const comm=i=>{if(!COMM){COMM={};for(const[s,l]of Object.entries(D.communes))l.forEach(c=>COMM[c[0]]={site:s,name:c[1]})}return COMM[i]};
-const LOC=async(la,lo,tol)=>{const[rs,b]=await Promise.all([findRd(la,lo,tol).catch(()=>null),ban(la,lo)]);return{rs,b,tol}};
+const LOC=async(la,lo,tol)=>{const[rs,b]=await Promise.all([findRd(la,lo,tol).then(r=>{RFERR='';return r}).catch(e=>{RFERR=e.message||String(e);return null}),ban(la,lo)]);return{rs,b,tol}};
 const prTxt=r=>r.pr==null?'PR indisponible':r.m>=0?`PR ${r.pr}+${r.m}`:`≈ ${-r.m} m avant le PR ${r.pr}`;
-const locTxt=x=>[x.rs&&x.rs[0]?`${shortRd(x.rs[0].axe)} · ${prTxt(x.rs[0])}${x.rs[0].approx?' (estimé)':''}`:x.rs?`aucune RD à moins de ${Math.round(x.tol)} m`:'référentiel RD indisponible',
+const locTxt=x=>[x.rs&&x.rs[0]?`${shortRd(x.rs[0].axe)} · ${prTxt(x.rs[0])}${x.rs[0].approx?' (estimé)':''}`:x.rs?`aucune RD à moins de ${Math.round(x.tol)} m`:'référentiel RD indisponible ('+RFERR+')',
  x.b?(comm(x.b.insee)?.name||x.b.city):'commune non déterminée (hors ligne ?)'].join(' · ');
 const ensOpt=(s,v)=>{if(v&&![...s.options].some(o=>o.value==v))s.add(new Option(v))};
 let autoRd=false,autoLd=false,LR=null,LRS=[],lseq=0;
@@ -424,7 +426,7 @@ function setRd(r){ensOpt(F.rd,r.axe);F.rd.value=r.axe;popPR();
 function setSite(k){if(!k||F.site.value==k)return;const c=F.commune.value;F.site.value=k;popC();if(c){ensOpt(F.commune,c);F.commune.value=c}}
 function setCom(b){const n=comm(b.insee)?.name||b.city;ensOpt(F.commune,n);F.commune.value=n}
 function locStatus(x){const alt=(x.rs||[]).slice(1),r=x.rs&&x.rs[0];
- $('#locst').textContent='✔ '+locTxt(x)+(r&&r.site?' · site '+siteTxt(r.site):'')+(x.b&&x.b.ld?' · '+x.b.ld:'')+(x.b&&x.b.dist>400?` (adresse BAN la plus proche à ${Math.round(x.b.dist)} m : vérifiez la commune)`:'');
+ $('#locst').textContent=(r?'✔ ':'⚠ ')+locTxt(x)+(r&&r.site?' · site '+siteTxt(r.site):'')+(x.b&&x.b.ld?' · '+x.b.ld:'')+(x.b&&x.b.dist>400?` (adresse BAN la plus proche à ${Math.round(x.b.dist)} m : vérifiez la commune)`:'');
  $('#localt').innerHTML=alt.length?'<span class="m">Autre(s) route(s) proche(s) :</span>'+alt.map((r,i)=>`<button type="button" class="s" data-alt="${i+1}">${esc(shortRd(r.axe))} · ${esc(prTxt(r))}</button>`).join(''):''}
 function applyLoc(x){LRS=x.rs||[];LR=LRS[0]||null;
  setSite(LR&&LR.site||(x.b&&comm(x.b.insee)?.site));   // le site vient d'abord du segment de RD, à défaut de la commune
@@ -432,7 +434,7 @@ function applyLoc(x){LRS=x.rs||[];LR=LRS[0]||null;
   if(x.b.ld&&(!F.lieudit.value||autoLd)){F.lieudit.value=x.b.ld;autoLd=true}else if(!x.b.ld&&autoLd){F.lieudit.value='';autoLd=false}}
  if(LR){setRd(LR);autoRd=true}else if(x.rs&&autoRd){F.rd.value='';popPR();F.abs.value='';calc();autoRd=false}
  locStatus(x);
- if(!x.rs||!LR||!x.b)toast(!x.b?'Commune non déterminée (connexion ?)':!x.rs?'Référentiel RD indisponible':'Aucune RD à proximité : renseignez la RD')}
+ if(!x.rs||!LR||!x.b)toast(!x.b?'Commune non déterminée (connexion ?)':!x.rs?'Référentiel RD indisponible : '+RFERR:'Aucune RD à proximité : renseignez la RD')}
 async function autoLoc(la,lo,tol){const s=++lseq;$('#locst').textContent='⏳ Détermination de la RD, du PR et de la commune…';$('#localt').innerHTML='';
  const x=await LOC(la,lo,tol);if(s===lseq)applyLoc(x)}
 function pickAlt(i){const r=LRS[i];if(!r)return;LR=r;setSite(r.site);setRd(r);autoRd=true;
