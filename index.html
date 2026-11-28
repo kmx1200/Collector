@@ -25,9 +25,10 @@ input,select,textarea{font:inherit;padding:9px;border:1px solid var(--l);border-
 input[readonly]{background:var(--ro)}
 .stp input{text-align:center}.w.stp button{padding:6px 14px;font-size:1.2rem;font-weight:700;touch-action:manipulation}.w.stp button:first-of-type{order:-1}input[type=range]{padding:0;border:0;margin-top:6px;accent-color:var(--b)}
 .w{display:flex;gap:4px}.w input{flex:1;min-width:0}.w button{padding:6px 8px}
-.g{margin:8px 0}.g>b{font-size:.85rem}.c{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.g{margin:8px 0}.g>b{font-size:.85rem}.c{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin:4px 0}
+label.dt{grid-column:1/-1}.dt input[type=date]{flex:3}.dt input[type=time]{flex:2}.dt .w button{flex:0 0 76px}.dt input{min-height:44px}
 .ch{position:relative}.ch input{position:absolute;opacity:0;width:1px;height:1px}
-.ch span{display:block;padding:7px 12px;border:1px solid var(--l);border-radius:20px;background:var(--c)}
+.ch span{display:flex;align-items:center;justify-content:center;text-align:center;height:100%;min-height:44px;padding:7px 10px;border:1px solid var(--l);border-radius:14px;background:var(--c);line-height:1.2}
 .ch input:checked+span{background:var(--b);color:#fff;border-color:var(--b)}
 .ch input:focus-visible+span{outline:2px solid var(--o)}
 .m{color:var(--m);font-size:.85rem}.a{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;margin-top:8px}.a button,.a .btn{padding:9px 10px;text-align:center}.a>b{grid-column:1/-1}.a.loc{grid-template-columns:1fr;margin:0 0 8px}.a.loc button{padding:13px 14px}#localt{display:grid;gap:6px;margin:4px 0 8px}
@@ -108,7 +109,9 @@ const ti=(k,l,t='text')=>`<label class="f">${l}<input name="${k}" type="${t}"></
 const stp=k=>k.startsWith('veh|')||/\|(we|nuit|norm)$/.test(k)?.5:k.startsWith('mm|')?5:k=='abs'?10:1;
 const ni=(k,l,no)=>`<label class="f">${l}<span class="w stp"><input name="${k}" type="number" inputmode="decimal" step="any">${no?'':`<button type="button" class="s" data-f="${k}" data-d="-1" aria-label="Diminuer">−</button><button type="button" class="s" data-f="${k}" data-d="1" aria-label="Augmenter">+</button>`}</span></label>`;
 const ta=(k,l)=>`<label class="f">${l}<textarea name="${k}" rows="3"></textarea></label>`;
-const dt=(k,l)=>`<label class="f">${l}<span class="w"><input name="${k}" type="datetime-local"><button type="button" class="s now" data-n="${k}">Maint.</button></span></label>`;
+const dt=(k,l)=>`<label class="f dt">${l}<span class="w"><input type="date" data-dt="${k}" aria-label="${l} – date"><input type="time" data-dt="${k}" aria-label="${l} – heure"><button type="button" class="s now" data-n="${k}">Maint.</button></span><input name="${k}" type="hidden"></label>`;
+const dtJoin=k=>{const[d,t]=F.querySelectorAll(`input[data-dt="${k}"]`);if(t.value&&!d.value)d.value=nowL().slice(0,10);F.elements[k].value=d.value||t.value?d.value+'T'+(t.value||'00:00'):''};
+const syncDt=()=>F.querySelectorAll('input[type=hidden][name]').forEach(h=>{const[d,t]=F.querySelectorAll(`input[data-dt="${h.name}"]`);if(!d)return;const v=h.value||'';d.value=v.slice(0,10);t.value=v.slice(11,16)});
 function build(){
  const sites=Object.keys(D.communes);
  F.innerHTML=
@@ -157,7 +160,7 @@ function fill(f){F.reset();F.site.value=f.site||'';popC();ensOpt(F.rd,f.rd);F.rd
  if(e.type=='checkbox')e.checked=(f[e.name]||[]).includes(e.value);else if(e.type!='button')e.value=f[e.name]}}
 // --- navigation
 function show(v){$('#lv').hidden=v!='list';$('#fv').hidden=v!='form';$('#new').hidden=v!='list';$('#back').hidden=v!='form';if(v=='list')renderList()}
-function open_(f){orig=f.photos||[];added=[];cur={...f,photos:[...orig]};fill(f);autoRd=false;autoLd=false;LR=null;LRS=[];lseq++;$('#locst').textContent='';$('#localt').innerHTML='';calc();drawPh();show('form');scrollTo(0,0)}
+function open_(f){orig=f.photos||[];added=[];cur={...f,photos:[...orig]};fill(f);syncDt();autoRd=false;autoLd=false;LR=null;LRS=[];lseq++;$('#locst').textContent='';$('#localt').innerHTML='';calc();drawPh();show('form');scrollTo(0,0)}
 function neu(){const d=new Date();   // site, commune, RD… vides : renseignés par la position
  open_({id:crypto.randomUUID?crypto.randomUUID():Date.now()+'',cree:d.toISOString(),site:'',numero:'',dDebut:nowL(),date_fiche:nowL().slice(0,10)})}
 const card=f=>`<div class="card"><b>Fiche n°${esc(f.numero||'?')} · ${fmt(f.dDebut||f.cree)}</b><br>${esc([f.commune,f.rd&&f.rd+(f.pr?' PR '+f.pr:'')+(f.abs?' +'+f.abs:'')].filter(Boolean).join(' · '))}
@@ -318,10 +321,10 @@ $('#L').onclick=e=>{const b=e.target.closest('button');if(!b)return;const f=fich
  if(b.dataset.a=='e')open_(f);
  if(b.dataset.a=='c')open_({...f,id:Date.now()+'',cree:new Date().toISOString(),numero:'',maj:undefined,photos:[]});
  if(b.dataset.a=='x'&&confirm('Supprimer cette fiche ?')){(f.photos||[]).forEach(delPh);fiches=fiches.filter(x=>x!=f);save();renderList()}};
-F.addEventListener('change',e=>{if(e.target.name=='site')popC();
+F.addEventListener('change',e=>{if(e.target.dataset.dt){dtJoin(e.target.dataset.dt);calc()}if(e.target.name=='site')popC();
  if(e.target.name=='commune'&&!F.site.value&&F.commune.value){const c=F.commune.value,k=Object.keys(D.communes).find(k=>D.communes[k].some(x=>x[1]==c));if(k){F.site.value=k;popC();F.commune.value=c}}
 if(e.target.name=='rd')popPR();if(['rd','pr','abs'].includes(e.target.name))autoRd=false;calc()});
-F.addEventListener('input',e=>{const t=e.target;if(t.dataset.for)F.elements[t.dataset.for].value=t.value;if(t.name=='lieudit')autoLd=false;calc()});
+F.addEventListener('input',e=>{const t=e.target;if(t.dataset.dt)dtJoin(t.dataset.dt);if(t.dataset.for)F.elements[t.dataset.for].value=t.value;if(t.name=='lieudit')autoLd=false;calc()});
 F.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
  if(b.id=='pick')return openMap('form');
  if(b.dataset.alt)return pickAlt(+b.dataset.alt);
@@ -330,7 +333,7 @@ F.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   return autoLoc(la,lo,Math.max(50,Math.min(150,2*n(F.gps_prec.value))))}
  if(b.id=='cam')return $('#phc').click();if(b.id=='gal')return $('#phi').click();
  if(b.dataset.p){cur.photos=cur.photos.filter(x=>x!=b.dataset.p);return drawPh()}
- if(b.classList.contains('now')){F.elements[b.dataset.n].value=nowL();calc()}
+ if(b.classList.contains('now')){F.elements[b.dataset.n].value=nowL();syncDt();calc()}
  if(b.id=='gps'){if(!navigator.geolocation)return toast('GPS indisponible');b.textContent='Recherche du signal…';
   navigator.geolocation.getCurrentPosition(p=>{F.lat.value=p.coords.latitude.toFixed(6);F.lon.value=p.coords.longitude.toFixed(6);F.gps_prec.value=Math.round(p.coords.accuracy);F.loc_source.value='GPS';b.textContent='📍 Position GPS actuelle';toast('Position enregistrée');autoLoc(p.coords.latitude,p.coords.longitude,Math.max(50,Math.min(150,2*p.coords.accuracy)))},
   er=>{b.textContent='📍 Position GPS actuelle';toast('GPS : '+er.message)},{enableHighAccuracy:true,timeout:20000,maximumAge:0})}});
